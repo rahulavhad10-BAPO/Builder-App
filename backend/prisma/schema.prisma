@@ -1,0 +1,594 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  projects  Project[]
+}
+
+model User {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  email          String         @unique
+  password       String
+  name           String
+  phone          String?
+  role           String         // Super Admin, Builder Admin, Project Manager, Site Engineer, Procurement, Inventory Manager, Finance, Sales, Compliance Manager, Contractor, Management, Broker, CRM/Collections Manager
+  status         String         @default("ACTIVE")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+}
+
+model Project {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  name           String
+  code           String           @unique
+  location       String
+  startDate      DateTime
+  targetDate     DateTime
+  status         String           @default("IN_PROGRESS") // PLANNING, IN_PROGRESS, ON_HOLD, COMPLETED
+  budget         Float            @default(0)
+  actualSpend    Float            @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  buildings      Building[]
+  flats          Flat[]
+  documents      Document[]
+  drawings       Drawing[]
+  contracts      Contract[]
+  dailyReports   DailyReport[]
+  monthlyReports MonthlyReport[]
+  materialDemands MaterialDemand[]
+  purchaseOrders PurchaseOrder[]
+  boqItems       BoqItem[]
+  complianceItems ComplianceItem[]
+  meetings       Meeting[]
+  issues         IssueSnagRfi[]
+}
+
+model Building {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  name        String   // Tower A, Tower B, etc.
+  code        String
+  totalFloors Int      @default(0)
+  totalUnits  Int      @default(0)
+  flats       Flat[]
+  documents   Document[]
+  drawings    Drawing[]
+  dailyReports DailyReport[]
+  complianceItems ComplianceItem[]
+  issues      IssueSnagRfi[]
+}
+
+model Flat {
+  id                  String           @id @default(uuid())
+  unitNumber          String           // e.g. A-1204
+  projectId           String
+  project             Project          @relation(fields: [projectId], references: [id])
+  buildingId          String
+  building            Building         @relation(fields: [buildingId], references: [id])
+  floorNumber         Int
+  configuration       String           // 2BHK, 3BHK, 4BHK, Penthouse
+  carpetArea          Float
+  saleableArea        Float
+  parking             String?
+  basePrice           Float
+  otherCharges        Float            @default(0)
+  agreementValue      Float
+  totalConsideration  Float
+  status              String           @default("AVAILABLE") // AVAILABLE, BLOCKED, BOOKED, AGREEMENT, SOLD, CANCELLED, POSSESSION, REGISTERED
+  customerId          String?
+  customer            Customer?        @relation(fields: [customerId], references: [id])
+  salesExecutiveName  String?
+  brokerId            String?
+  broker              Broker?          @relation(fields: [brokerId], references: [id])
+  bookingDate         DateTime?
+  agreementDate       DateTime?
+  possessionDate      DateTime?
+  registrationDate    DateTime?
+  cancellationDate    DateTime?
+  notes               String?
+  demands             PaymentDemand[]
+  payments            Payment[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model Customer {
+  id                 String           @id @default(uuid())
+  name               String
+  email              String
+  phone              String
+  pan                String?
+  address            String?
+  salesExecutiveName String?
+  brokerId           String?
+  broker             Broker?          @relation(fields: [brokerId], references: [id])
+  status             String           @default("ACTIVE")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  flats              Flat[]
+  demands            PaymentDemand[]
+  payments           Payment[]
+  reminders          DemandReminder[]
+}
+
+model Broker {
+  id             String     @id @default(uuid())
+  name           String
+  company        String
+  contact        String
+  email          String?
+  registrationNo String?
+  salesPerson    String?
+  commissionRate Float      @default(2.0)
+  status         String     @default("ACTIVE")
+  createdAt      DateTime   @default(now())
+  flats          Flat[]
+  customers      Customer[]
+}
+
+model PaymentDemand {
+  id           String            @id @default(uuid())
+  demandNumber String            @unique
+  flatId       String
+  flat         Flat              @relation(fields: [flatId], references: [id])
+  customerId   String
+  customer     Customer          @relation(fields: [customerId], references: [id])
+  projectId    String
+  demandType   String            // BOOKING_AMOUNT, AGREEMENT_PAYMENT, CONSTRUCTION_LINKED, FLOOR_SLAB, MILESTONE, POSSESSION, REGISTRATION, OTHER_CHARGES, CUSTOM
+  demandDate   DateTime
+  dueDate      DateTime
+  demandAmount Float
+  taxAmount    Float             @default(0)
+  totalAmount  Float
+  paidAmount   Float             @default(0)
+  balanceAmount Float
+  status       String            @default("UPCOMING") // UPCOMING, DUE, PARTIALLY_PAID, PAID, OVERDUE, CANCELLED
+  paymentDate  DateTime?
+  daysOverdue  Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  allocations  PaymentAllocation[]
+  reminders    DemandReminder[]
+}
+
+model Payment {
+  id             String              @id @default(uuid())
+  receiptNumber  String              @unique
+  paymentDate    DateTime
+  amount         Float
+  paymentMode    String              // NEFT, RTGS, CHEQUE, UPI, NET_BANKING, DEMAND_DRAFT, CASH
+  transactionRef String
+  status         String              @default("VERIFIED") // VERIFIED, PENDING, REJECTED
+  flatId         String
+  flat           Flat                @relation(fields: [flatId], references: [id])
+  customerId     String
+  customer       Customer            @relation(fields: [customerId], references: [id])
+  notes          String?
+  createdAt      DateTime            @default(now())
+  allocations    PaymentAllocation[]
+}
+
+model PaymentAllocation {
+  id          String        @id @default(uuid())
+  paymentId   String
+  payment     Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  demandId    String
+  demand      PaymentDemand @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  amount      Float
+  allocatedAt DateTime      @default(now())
+}
+
+model DemandReminder {
+  id            String        @id @default(uuid())
+  demandId      String
+  demand        PaymentDemand @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  reminderType  String        // SEVEN_DAYS_BEFORE, THREE_DAYS_BEFORE, ON_DUE_DATE, THREE_DAYS_AFTER, SEVEN_DAYS_AFTER, CUSTOM
+  scheduledDate DateTime
+  sentDate      DateTime?
+  recipient     String
+  status        String        @default("PENDING") // PENDING, SENT, FAILED
+  emailRef      String?
+  failureReason String?
+  createdAt     DateTime      @default(now())
+}
+
+model Document {
+  id               String            @id @default(uuid())
+  organizationId   String
+  projectId        String
+  project          Project           @relation(fields: [projectId], references: [id])
+  buildingId       String?
+  building         Building?         @relation(fields: [buildingId], references: [id])
+  name             String
+  type             String            // PDF, DWG, EXCEL, CONTRACT, APPROVAL
+  category         String            // PERMITS, CONTRACTS, DRAWINGS, COMPLIANCE, FINANCIAL, SITE_PHOTOS
+  version          Int               @default(1)
+  fileType         String
+  storageReference String
+  fileSize         Int               @default(0)
+  uploadedBy       String
+  uploadedAt       DateTime          @default(now())
+  expiryDate       DateTime?
+  permissions      String            @default("ALL") // ALL, ADMIN_ONLY, PROJECT_TEAM
+  status           String            @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  ragEnabled       Boolean           @default(false)
+  ragStatus        String            @default("NOT_INDEXED") // NOT_INDEXED, QUEUED, PROCESSING, INDEXED, FAILED, OUTDATED
+  ragDocumentId    String?
+  ragProvider      String?
+  lastIndexedAt    DateTime?
+  indexingError    String?
+  contentVersion   Int               @default(1)
+  versions         DocumentVersion[]
+}
+
+model DocumentVersion {
+  id               String   @id @default(uuid())
+  documentId       String
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber    Int
+  storageReference String
+  uploadedBy       String
+  uploadedAt       DateTime @default(now())
+  changeSummary    String?
+}
+
+model Drawing {
+  id            String   @id @default(uuid())
+  drawingNumber String   @unique
+  name          String
+  revision      String   // R0, R1, R2, R3
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id])
+  buildingId    String?
+  building      Building? @relation(fields: [buildingId], references: [id])
+  category      String   // ARCHITECTURAL, STRUCTURAL, MEP, ELECTRICAL, PLUMBING, FIRE_SAFETY
+  status        String   @default("APPROVED") // DRAFT, UNDER_REVIEW, APPROVED, SUPERSEDED
+  uploadedBy    String
+  date          DateTime @default(now())
+  fileUrl       String
+}
+
+model Contractor {
+  id               String        @id @default(uuid())
+  name             String
+  code             String        @unique
+  contactPerson    String
+  phone            String
+  email            String
+  scope            String
+  rating           Float         @default(4.0)
+  performanceScore Float         @default(85.0)
+  status           String        @default("ACTIVE")
+  createdAt        DateTime      @default(now())
+  contracts        Contract[]
+  dailyReports     DailyReport[]
+  boqItems         BoqItem[]
+  issues           IssueSnagRfi[]
+}
+
+model Contract {
+  id             String     @id @default(uuid())
+  contractorId   String
+  contractor     Contractor @relation(fields: [contractorId], references: [id])
+  projectId      String
+  project        Project    @relation(fields: [projectId], references: [id])
+  contractNumber String     @unique
+  title          String
+  startDate      DateTime
+  endDate        DateTime
+  totalValue     Float
+  status         String     @default("ACTIVE")
+}
+
+model DailyReport {
+  id               String     @id @default(uuid())
+  date             DateTime
+  projectId        String
+  project          Project    @relation(fields: [projectId], references: [id])
+  buildingId       String?
+  building         Building?  @relation(fields: [buildingId], references: [id])
+  contractorId     String?
+  contractor       Contractor? @relation(fields: [contractorId], references: [id])
+  manpower         Int        @default(0)
+  weather          String     @default("Clear")
+  plannedWork      String
+  completedWork    String
+  delayedWork      String?
+  materialReceived String?
+  materialConsumed String?
+  equipment        String?
+  issues           String?
+  safety           String     @default("Zero incidents")
+  photos           String?
+  nextDayPlan      String?
+  remarks          String?
+  submittedBy      String
+  createdAt        DateTime   @default(now())
+}
+
+model MonthlyReport {
+  id                  String   @id @default(uuid())
+  month               Int
+  year                Int
+  projectId           String
+  project             Project  @relation(fields: [projectId], references: [id])
+  plannedProgress     Float
+  actualProgress      Float
+  variance            Float
+  achievements        String
+  delays              String?
+  cost                String
+  procurement         String
+  contractor          String
+  safety              String
+  quality             String
+  compliance          String
+  risks               String?
+  decisions           String?
+  nextMonthPriorities String
+  submittedBy         String
+  createdAt           DateTime @default(now())
+}
+
+model InventoryItem {
+  id           String                 @id @default(uuid())
+  itemCode     String                 @unique
+  name         String
+  category     String                 // CEMENT, STEEL, BRICKS, AGGREGATE, TILES, PLUMBING, ELECTRICAL, PAINT
+  unit         String                 // BAGS, MT, SQFT, NOS, LTRS
+  minStock     Float                  @default(0)
+  reorderLevel Float                  @default(0)
+  currentStock Float                  @default(0)
+  location     String
+  transactions InventoryTransaction[]
+  demands      MaterialDemand[]
+  poLineItems  PoLineItem[]
+}
+
+model InventoryTransaction {
+  id          String        @id @default(uuid())
+  itemId      String
+  item        InventoryItem @relation(fields: [itemId], references: [id])
+  projectId   String
+  type        String        // OPENING, RECEIPT, ISSUE, ADJUSTMENT, TRANSFER
+  quantity    Float
+  reference   String?       // PO-101, REQ-202, GRN-303
+  date        DateTime      @default(now())
+  notes       String?
+  createdBy   String
+}
+
+model MaterialDemand {
+  id                  String          @id @default(uuid())
+  demandNumber        String          @unique
+  itemId              String
+  item                InventoryItem   @relation(fields: [itemId], references: [id])
+  quantity            Float
+  projectId           String
+  project             Project         @relation(fields: [projectId], references: [id])
+  requesterName       String
+  requestDate         DateTime        @default(now())
+  requiredDate        DateTime
+  ownerName           String
+  procurementPerson   String
+  priority            String          @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status              String          @default("REQUESTED") // REQUESTED, APPROVED, ORDERED, PARTIALLY_RECEIVED, RECEIVED, COMPLETED, REJECTED, OVERDUE
+  isOverdue           Boolean         @default(false)
+  lastEmailSentAt     DateTime?
+  createdAt           DateTime        @default(now())
+  purchaseOrders      PurchaseOrder[]
+  poExceptions        PoException[]
+}
+
+model Vendor {
+  id            String          @id @default(uuid())
+  name          String
+  code          String          @unique
+  contactPerson String
+  email         String
+  phone         String
+  address       String
+  rating        Float           @default(4.0)
+  status        String          @default("ACTIVE")
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id           String        @id @default(uuid())
+  poNumber     String        @unique
+  vendorId     String
+  vendor       Vendor        @relation(fields: [vendorId], references: [id])
+  demandId     String?
+  demand       MaterialDemand? @relation(fields: [demandId], references: [id])
+  projectId    String
+  project      Project       @relation(fields: [projectId], references: [id])
+  totalAmount  Float
+  status       String        @default("ISSUED") // DRAFT, ISSUED, PARTIALLY_DELIVERED, DELIVERED, CANCELLED
+  poDate       DateTime      @default(now())
+  deliveryDate DateTime
+  createdAt    DateTime      @default(now())
+  lineItems    PoLineItem[]
+  exceptions   PoException[]
+}
+
+model PoLineItem {
+  id        String        @id @default(uuid())
+  poId      String
+  po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  quantity  Float
+  unitPrice Float
+  amount    Float
+}
+
+model PoException {
+  id        String          @id @default(uuid())
+  poId      String
+  po        PurchaseOrder   @relation(fields: [poId], references: [id], onDelete: Cascade)
+  demandId  String?
+  demand    MaterialDemand? @relation(fields: [demandId], references: [id])
+  type      String          // QUANTITY_MISMATCH, PRICE_MISMATCH, ITEM_MISMATCH, VENDOR_MISMATCH, DUPLICATE_PO, OVER_ORDERING, UNDER_ORDERING
+  message   String
+  resolved  Boolean         @default(false)
+  createdAt DateTime        @default(now())
+}
+
+model BoqItem {
+  id                String      @id @default(uuid())
+  itemCode          String
+  description       String
+  unit              String
+  plannedQuantity   Float
+  rate              Float
+  amount            Float
+  contractorId      String?
+  contractor        Contractor? @relation(fields: [contractorId], references: [id])
+  projectId         String
+  project           Project     @relation(fields: [projectId], references: [id])
+  buildingId        String?
+  consumedQuantity  Float       @default(0)
+  remainingQuantity Float       @default(0)
+  quantityVariance  Float       @default(0)
+  costVariance      Float       @default(0)
+}
+
+model ComplianceItem {
+  id          String   @id @default(uuid())
+  name        String
+  category    String   // RERA, FIRE_SAFETY, ENVIRONMENT, LABOUR, BUILDING_PERMISSIONS, SAFETY, QUALITY, LOCAL_AUTHORITY, PROJECT_SPECIFIC
+  description String
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  buildingId  String?
+  building    Building? @relation(fields: [buildingId], references: [id])
+  ownerName   String
+  dueDate     DateTime
+  frequency   String   // ONE_TIME, MONTHLY, QUARTERLY, ANNUALLY
+  status      String   @default("PENDING") // COMPLETED, IN_PROGRESS, PENDING, OVERDUE, NOT_APPLICABLE
+  evidence    String?
+  remarks     String?
+}
+
+model Meeting {
+  id           String            @id @default(uuid())
+  title        String
+  date         DateTime
+  projectId    String
+  project      Project           @relation(fields: [projectId], references: [id])
+  location     String
+  participants String
+  agenda       String
+  mom          String?
+  status       String            @default("COMPLETED")
+  createdAt    DateTime          @default(now())
+  decisions    MeetingDecision[]
+  actions      ActionItem[]
+}
+
+model MeetingDecision {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  decision  String
+  decidedBy String
+  date      DateTime @default(now())
+}
+
+model ActionItem {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  title     String
+  ownerName String
+  dueDate   DateTime
+  priority  String   @default("MEDIUM")
+  status    String   @default("OPEN") // OPEN, IN_PROGRESS, COMPLETED
+}
+
+model IssueSnagRfi {
+  id           String      @id @default(uuid())
+  type         String      // ISSUE, SNAG, RFI
+  projectId    String
+  project      Project     @relation(fields: [projectId], references: [id])
+  buildingId   String?
+  building     Building?   @relation(fields: [buildingId], references: [id])
+  floor        String?
+  location     String
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id])
+  description  String
+  priority     String      @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  ownerName    String
+  dueDate      DateTime
+  status       String      @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  evidence     String?
+  resolution   String?
+  createdAt    DateTime    @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String   // INFO, WARNING, ALERT, SUCCESS
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model EmailLog {
+  id         String   @id @default(uuid())
+  to         String
+  cc         String?
+  subject    String
+  body       String
+  status     String   @default("SENT") // SENT, FAILED
+  sentAt     DateTime @default(now())
+  error      String?
+  reminderId String?
+  demandId   String?
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  action        String   // CREATE, UPDATE, DELETE, ALLOCATE, REMIND, EXCEPTION
+  module        String   // PAYMENT, DEMAND, FLAT, DOCUMENT, INVENTORY, PROCUREMENT, COMPLIANCE
+  recordId      String
+  previousValue String?
+  newValue      String?
+  timestamp     DateTime @default(now())
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+}
