@@ -1,8 +1,8 @@
-import React from 'react';
 import {
   LayoutDashboard,
   Building2,
   Users,
+  Briefcase,
   Package,
   ShoppingCart,
   Calculator,
@@ -34,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Command Center', icon: LayoutDashboard },
     { id: 'flats', label: 'Flat Inventory', icon: Building2, badge: 'Real Estate' },
     { id: 'crm', label: 'CRM & Collections', icon: Users, badge: overdueDemandsCount > 0 ? `${overdueDemandsCount} Due` : undefined, badgeColor: 'bg-amber-500/20 text-amber-300' },
+    { id: 'brokers', label: 'Channel Partners & Brokers', icon: Briefcase },
     { id: 'material-inventory', label: 'Material Inventory', icon: Package },
     { id: 'procurement', label: 'Procurement & PO', icon: ShoppingCart, badge: openExceptionsCount > 0 ? `${openExceptionsCount} Alert` : undefined, badgeColor: 'bg-rose-500/20 text-rose-300' },
     { id: 'boq', label: 'BOQ Management', icon: Calculator },

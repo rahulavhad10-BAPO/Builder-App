@@ -48,6 +48,7 @@ router.get('/procurement/pos', requireAuth, ProcurementController.getPurchaseOrd
 router.post('/procurement/pos', requireAuth, requirePermission('po.create'), ProcurementController.createPurchaseOrder);
 router.post('/procurement/pos/:id/approve', requireAuth, requirePermission('admin.access'), ProcurementController.approvePO);
 router.post('/procurement/pos/:id/place-order', requireAuth, requirePermission('admin.access'), ProcurementController.placeOrder);
+router.post('/procurement/pos/:id/invoice', requireAuth, ProcurementController.uploadInvoice);
 router.get('/procurement/exceptions', requireAuth, ProcurementController.getPOExceptions);
 router.post('/procurement/exceptions/:id/resolve', requireAuth, requirePermission('po.verify'), ProcurementController.resolveException);
 router.post('/procurement/verify-po/:id', requireAuth, requirePermission('po.verify'), ProcurementController.verifyPO);

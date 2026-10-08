@@ -79,14 +79,14 @@ export class DatabaseVectorProvider implements IRAGProvider {
       const scoredChunks = await VectorStore.searchSimilarChunks(query, {
         projectId: filters?.projectId,
         limit: 4,
-        minScore: 0.12,
+        minScore: 0.28,
       });
 
       if (scoredChunks.length === 0) {
         return {
           status: 'SUCCESS',
           sources: [],
-          answer: `No relevant documents or drawings found matching "${query}" in project records. Ensure corresponding documents have been uploaded and vector indexed.`,
+          answer: `No relevant documents or drawings found matching "${query}" in project repository. Operational data (such as Daily Progress Reports and site logs) is submitted dynamically by contractors and managed under the Site Operations module.`,
         };
       }
 
@@ -123,9 +123,11 @@ export class DatabaseVectorProvider implements IRAGProvider {
     const topChunk = scoredChunks[0];
     const topTitle = topChunk.metadata.title;
     const topCategory = topChunk.metadata.category;
-
-    // Check query intent
     const qLower = query.toLowerCase();
+
+    if (topChunk.score < 0.30) {
+      return `No high-confidence document matches were found in uploaded contracts or drawings for "${query}". Daily progress reports and contractor logs are managed in the Site Operations module.`;
+    }
 
     if (qLower.includes('penalty') || qLower.includes('penalties') || qLower.includes('liquidated')) {
       return `According to the executed agreement "${topTitle}" (${topCategory}), the penalty and liquidated damages terms state: Delay penalties are levied at 0.5% per week of delay on delayed milestones, capped at a maximum of 10% of total contract value. Furthermore, a 5% retention money is held back until satisfactory completion of the 24-month defect liability period.`;

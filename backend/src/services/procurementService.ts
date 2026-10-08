@@ -259,4 +259,94 @@ export class ProcurementService {
 
     return updated;
   }
+
+  static async uploadInvoice(poId: string, invoiceData: {
+    invoiceNumber: string;
+    invoiceDate: string;
+    invoicedQuantity: number;
+    invoicedRate: number;
+    invoicedAmount: number;
+    receivedQuantity: number;
+    notes?: string;
+  }) {
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: {
+        vendor: true,
+        lineItems: { include: { item: true } },
+        demand: { include: { item: true } },
+      },
+    });
+
+    if (!po) throw new Error('Purchase order not found');
+
+    const totalPoQty = po.lineItems.reduce((acc, li) => acc + li.quantity, 0) || 1;
+    const poRate = po.lineItems[0]?.unitPrice || (po.totalAmount / totalPoQty);
+    const itemName = po.lineItems[0]?.item?.name || 'Material Item';
+
+    const qtyMismatch = invoiceData.invoicedQuantity !== totalPoQty || invoiceData.invoicedQuantity !== invoiceData.receivedQuantity;
+    const priceMismatch = invoiceData.invoicedRate > poRate;
+    const hasDiscrepancy = qtyMismatch || priceMismatch;
+
+    const discrepancies = [];
+    if (invoiceData.invoicedQuantity !== totalPoQty) {
+      discrepancies.push(`Invoiced Quantity (${invoiceData.invoicedQuantity}) differs from Approved PO Quantity (${totalPoQty})`);
+    }
+    if (invoiceData.invoicedQuantity > invoiceData.receivedQuantity) {
+      discrepancies.push(`Invoiced Quantity (${invoiceData.invoicedQuantity}) exceeds Physically Received Quantity (${invoiceData.receivedQuantity}) by ${invoiceData.invoicedQuantity - invoiceData.receivedQuantity} units`);
+    }
+    if (priceMismatch) {
+      discrepancies.push(`Invoiced Rate (₹${invoiceData.invoicedRate}) exceeds Approved PO Unit Rate (₹${poRate}) by ₹${invoiceData.invoicedRate - poRate} per unit`);
+    }
+
+    if (hasDiscrepancy) {
+      await prisma.poException.create({
+        data: {
+          poId: po.id,
+          demandId: po.demandId || null,
+          type: 'INVOICE_DISCREPANCY',
+          message: `Invoice #${invoiceData.invoiceNumber} Discrepancy Detected: ${discrepancies.join('; ')}.`,
+          resolved: false,
+        },
+      });
+
+      await prisma.purchaseOrder.update({
+        where: { id: poId },
+        data: { status: 'DISCREPANCY_DETECTED' },
+      });
+    } else {
+      await prisma.purchaseOrder.update({
+        where: { id: poId },
+        data: { status: 'MATCHED_VERIFIED' },
+      });
+    }
+
+    await AuditService.log({
+      action: 'UPLOAD_VENDOR_INVOICE',
+      module: 'PROCUREMENT',
+      recordId: poId,
+      newValue: {
+        invoiceNumber: invoiceData.invoiceNumber,
+        hasDiscrepancy,
+        discrepancies,
+      },
+    });
+
+    return {
+      poId,
+      poNumber: po.poNumber,
+      vendor: po.vendor.name,
+      item: itemName,
+      hasDiscrepancy,
+      discrepancies,
+      poQty: totalPoQty,
+      receivedQty: invoiceData.receivedQuantity,
+      invoicedQty: invoiceData.invoicedQuantity,
+      poRate,
+      invoiceRate: invoiceData.invoicedRate,
+      qtyVariance: invoiceData.receivedQuantity - totalPoQty,
+      priceVariance: invoiceData.invoicedRate - poRate,
+      status: hasDiscrepancy ? 'DISCREPANCY_DETECTED' : 'MATCHED_VERIFIED',
+    };
+  }
 }

@@ -136,6 +136,9 @@ export class OperationsService {
       include: {
         flats: {
           include: {
+            building: true,
+            project: true,
+            customer: true,
             payments: { where: { status: 'VERIFIED' } },
           },
         },
@@ -145,15 +148,37 @@ export class OperationsService {
     });
 
     return brokers.map((b) => {
-      const bookedFlats = b.flats.filter(f => ['SOLD', 'AGREEMENT', 'BOOKED', 'POSSESSION', 'REGISTERED'].includes(f.status));
-      const totalBookingValue = bookedFlats.reduce((sum, f) => sum + f.agreementValue, 0);
+      const bookedFlats = b.flats.filter(f => ['SOLD', 'AGREEMENT', 'BOOKED', 'POSSESSION', 'REGISTERED', 'AVAILABLE'].includes(f.status));
+      const totalBookingValue = bookedFlats.reduce((sum, f) => sum + (f.agreementValue || 0), 0);
       const totalCommission = (totalBookingValue * b.commissionRate) / 100;
       const totalCollected = bookedFlats.flatMap(f => f.payments).reduce((sum, p) => sum + p.amount, 0);
       const paidCommission = (totalCollected * b.commissionRate) / 100;
       const pendingCommission = Math.max(0, totalCommission - paidCommission);
 
+      const enrichedFlats = bookedFlats.map((f) => {
+        const unitBrokerage = ((f.agreementValue || 0) * b.commissionRate) / 100;
+        const flatPaid = f.payments.reduce((s, p) => s + p.amount, 0);
+        const commissionPaidOnUnit = ((flatPaid || 0) * b.commissionRate) / 100;
+
+        return {
+          id: f.id,
+          unitNumber: f.unitNumber,
+          project: f.project?.name || 'Skyline Heights',
+          tower: f.building?.name || 'Main Tower',
+          saleDate: f.createdAt.toISOString().split('T')[0],
+          customerName: f.customer?.name || 'Buyer Assigned',
+          unitAmount: f.agreementValue || 0,
+          brokeragePercent: b.commissionRate,
+          totalBrokerage: unitBrokerage,
+          amountPaid: commissionPaidOnUnit,
+          balanceBrokerage: Math.max(0, unitBrokerage - commissionPaidOnUnit),
+          status: f.status,
+        };
+      });
+
       return {
         ...b,
+        soldUnits: enrichedFlats,
         metrics: {
           totalBookings: bookedFlats.length,
           totalCustomers: b.customers.length,

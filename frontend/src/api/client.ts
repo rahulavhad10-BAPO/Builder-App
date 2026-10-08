@@ -198,6 +198,13 @@ export class ApiClient {
     });
   }
 
+  static uploadPOInvoice(id: string, data: any) {
+    return this.request<any>(`/procurement/pos/${id}/invoice`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   static getPOExceptions(resolved?: boolean) {
     const qs = resolved !== undefined ? `?resolved=${resolved}` : '';
     return this.request<any[]>(`/procurement/exceptions${qs}`);

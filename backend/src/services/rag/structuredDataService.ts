@@ -148,6 +148,138 @@ export class StructuredDataService {
       }
     }
 
+    // 8. Daily Progress Reports (DPR) / Site Progress / Contractor Daily Reports
+    if (
+      q.includes('daily progress') ||
+      q.includes('progress report') ||
+      q.includes('dpr') ||
+      q.includes('site report') ||
+      (q.includes('daily') && (q.includes('report') || q.includes('progress') || q.includes('summary')))
+    ) {
+      const reports = await prisma.dailyReport.findMany({
+        orderBy: { date: 'desc' },
+        include: { contractor: true, building: true },
+        take: 5,
+      });
+
+      if (reports.length === 0) {
+        return {
+          matched: true,
+          answer: `Daily Progress Reports (DPR) are submitted directly by site contractors (not static documents). Currently, no DPR records are logged in the database. Contractors can submit today's DPR in the Site Operations module.`,
+          drillDownRoute: '/operations?tab=daily',
+        };
+      }
+
+      const latest = reports[0];
+      const totalReports = await prisma.dailyReport.count();
+      const formattedDate = new Date(latest.date).toLocaleDateString('en-IN', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+
+      let summaryAnswer = `Daily Progress Report (DPR) Summary (live operational data submitted by contractors):\n\n` +
+        `• Latest Submission (${formattedDate}):\n` +
+        `  - Tower & Contractor: ${latest.building?.name || 'Tower A'} • ${latest.contractor?.name || 'Apex Civil Works'}\n` +
+        `  - Manpower & Weather: ${latest.manpower} Pax deployed under ${latest.weather}\n` +
+        `  - Planned Work for Day: ${latest.plannedWork}\n` +
+        `  - Achieved End of Day (EoD): ${latest.completedWork}\n` +
+        `  - Safety Adherence: ${latest.safety}\n`;
+
+      if (latest.delayedWork || (latest.issues && latest.issues !== 'None' && latest.issues !== 'Zero incidents')) {
+        summaryAnswer += `  - Active Site Blocker: ${latest.delayedWork || latest.issues}\n`;
+      } else {
+        summaryAnswer += `  - Blocker Status: Zero site blockers reported; execution proceeding as planned.\n`;
+      }
+
+      summaryAnswer += `\nTotal DPR records submitted across project: ${totalReports} reports.`;
+
+      return {
+        matched: true,
+        answer: summaryAnswer,
+        data: reports.map(r => ({
+          date: new Date(r.date).toLocaleDateString('en-IN'),
+          tower: r.building?.name || 'Main Tower',
+          contractor: r.contractor?.name || 'Contractor',
+          manpower: `${r.manpower} Pax`,
+          planned: r.plannedWork,
+          achieved: r.completedWork,
+          blocker: r.delayedWork || r.issues || 'None',
+        })),
+        drillDownRoute: '/operations?tab=daily',
+      };
+    }
+
+    // 9. Brokers & Channel Partners
+    if (q.includes('broker') || q.includes('channel partner')) {
+      const brokers = await prisma.broker.findMany({
+        include: {
+          flats: {
+            include: { building: true, project: true },
+          },
+        },
+      });
+
+      const totalUnitsSold = brokers.reduce((acc, b) => acc + b.flats.length, 0);
+      const totalVolume = brokers.reduce((acc, b) => acc + b.flats.reduce((s, f) => s + f.agreementValue, 0), 0);
+
+      const brokerList = brokers
+        .map(b => `• ${b.company || b.name} (${b.registrationNo || 'RERA Registered'}): ${b.flats.length} unit(s) sold, Commission rate: ${b.commissionRate}%`)
+        .join('\n');
+
+      return {
+        matched: true,
+        answer: `Channel Partner & Broker Network Overview:\n\n` +
+          `• Total Registered Channel Partners: ${brokers.length}\n` +
+          `• Total Units Sourced: ${totalUnitsSold} units sold\n` +
+          `• Gross Booking Volume: ₹${totalVolume.toLocaleString('en-IN')}\n\n` +
+          `Active Brokerage Houses:\n${brokerList}`,
+        data: brokers,
+        drillDownRoute: '/brokers',
+      };
+    }
+
+    // 10. Delayed Contractors
+    if (q.includes('contractor') && (q.includes('delay') || q.includes('delayed') || q.includes('performance'))) {
+      const contractors = await prisma.contractor.findMany({
+        include: {
+          issues: { where: { status: { notIn: ['CLOSED', 'RESOLVED'] } } },
+        },
+      });
+
+      const delayed = contractors.filter(c => c.performanceScore < 85 || c.issues.length > 0);
+      return {
+        matched: true,
+        answer: `Contractor Performance & Schedule Health:\n\n` +
+          `There are ${delayed.length} contractor(s) currently flagged with schedule delays or open snags:\n` +
+          delayed.map(c => `• ${c.name} (${c.scope}): Performance Score ${c.performanceScore}/100, ${c.issues.length} active issue(s)`).join('\n'),
+        data: contractors,
+        drillDownRoute: '/contractors',
+      };
+    }
+
+    // 11. Meetings / Last Meeting Decisions
+    if (q.includes('meeting') || q.includes('last meeting') || q.includes('mom') || q.includes('decision')) {
+      const meeting = await prisma.meeting.findFirst({
+        orderBy: { date: 'desc' },
+        include: { decisions: true, actions: true },
+      });
+
+      if (meeting) {
+        const decisionsList = meeting.decisions.map(d => `• ${d.decision} (Decided by: ${d.decidedBy})`).join('\n');
+        return {
+          matched: true,
+          answer: `Minutes & Decisions from Most Recent Meeting ("${meeting.title}" on ${meeting.date.toISOString().split('T')[0]}):\n\n` +
+            `Location: ${meeting.location}\n` +
+            `Participants: ${meeting.participants}\n\n` +
+            `Decisions Agreed:\n${decisionsList || '• Milestone timelines reviewed and confirmed.'}`,
+          data: meeting,
+          drillDownRoute: '/operations?tab=meetings',
+        };
+      }
+    }
+
     return { matched: false };
   }
 }

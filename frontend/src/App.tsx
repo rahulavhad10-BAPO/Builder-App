@@ -5,6 +5,7 @@ import { Header } from './components/Header.js';
 import { DashboardView } from './views/DashboardView.js';
 import { FlatInventoryView } from './views/FlatInventoryView.js';
 import { CrmCollectionsView } from './views/CrmCollectionsView.js';
+import { BrokersView } from './views/BrokersView.js';
 import { MaterialInventoryView } from './views/MaterialInventoryView.js';
 import { ProcurementView } from './views/ProcurementView.js';
 import { BOQView } from './views/BOQView.js';
@@ -98,6 +99,13 @@ const MainApplication: React.FC = () => {
               projectId={selectedProjectId}
               onOpenFlat360={(id) => setActiveFlat360Id(id)}
               onOpenRecordPayment={handleOpenRecordPayment}
+            />
+          )}
+
+          {activeTab === 'brokers' && (
+            <BrokersView
+              projectId={selectedProjectId}
+              onOpenFlat360={(id) => setActiveFlat360Id(id)}
             />
           )}
 

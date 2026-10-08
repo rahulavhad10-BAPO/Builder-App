@@ -67,6 +67,15 @@ export class ProcurementController {
     }
   }
 
+  static async uploadInvoice(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await ProcurementService.uploadInvoice(req.params.id as string, req.body);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
   static async getPOExceptions(req: Request, res: Response): Promise<void> {
     try {
       const resolved = req.query.resolved !== undefined ? req.query.resolved === 'true' : undefined;
