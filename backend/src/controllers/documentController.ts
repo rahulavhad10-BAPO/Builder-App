@@ -23,7 +23,7 @@ export class DocumentController {
 
   static async getDocumentById(req: Request, res: Response): Promise<void> {
     try {
-      const doc = await DocumentService.getDocumentById(req.params.id);
+      const doc = await DocumentService.getDocumentById(req.params.id as string);
       if (!doc) {
         res.status(404).json({ error: 'Document not found' });
         return;
@@ -76,7 +76,7 @@ export class DocumentController {
       const storageReference = file ? file.filename : `simulated_v2_${Date.now()}.pdf`;
       const fileSize = file ? file.size : 102400;
 
-      const updated = await DocumentService.uploadNewVersion(req.params.id, {
+      const updated = await DocumentService.uploadNewVersion(req.params.id as string, {
         storageReference,
         fileSize,
         uploadedBy: req.user!.name,
@@ -91,7 +91,7 @@ export class DocumentController {
 
   static async deleteDocument(req: Request, res: Response): Promise<void> {
     try {
-      const result = await DocumentService.deleteDocument(req.params.id, req.user?.id);
+      const result = await DocumentService.deleteDocument(req.params.id as string, req.user?.id);
       res.json({ message: 'Document marked as deleted', document: result });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

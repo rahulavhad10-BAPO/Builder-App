@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Shield,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 
 interface DocumentsViewProps {
@@ -63,6 +64,22 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              try {
+                await ApiClient.reindexVectors();
+                loadDocuments();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 text-xs font-semibold border border-slate-700 shadow-sm transition-all cursor-pointer"
+            title="Re-chunk and update semantic embeddings across all project records"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>Sync RAG Vectors</span>
+          </button>
+
           {canUpload && (
             <button
               onClick={() => setUploadModalOpen(true)}
@@ -112,7 +129,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
                 <th className="p-3">Category</th>
                 <th className="p-3">Version</th>
                 <th className="p-3">RBAC Tier</th>
-                <th className="p-3">Future RAG Status</th>
+                <th className="p-3">Vector RAG Status</th>
                 <th className="p-3">Uploaded By</th>
                 <th className="p-3">Uploaded Date</th>
                 <th className="p-3 text-right">File Reference</th>
@@ -163,9 +180,16 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
                       </span>
                     </td>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60">
-                        {doc.ragStatus}
-                      </span>
+                      {doc.ragStatus === 'INDEXED' ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1 w-max">
+                          <Sparkles className="w-3 h-3 text-emerald-400" />
+                          <span>INDEXED (Vectorized)</span>
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60">
+                          {doc.ragStatus}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3 text-slate-300">{doc.uploadedBy}</td>
                     <td className="p-3 text-slate-400">{new Date(doc.uploadedAt).toLocaleDateString('en-IN')}</td>

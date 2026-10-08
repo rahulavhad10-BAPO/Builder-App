@@ -18,7 +18,7 @@ export class CRMController {
 
   static async getCustomerProfile(req: Request, res: Response): Promise<void> {
     try {
-      const profile = await CustomerCollectionService.getCustomerProfile(req.params.id);
+      const profile = await CustomerCollectionService.getCustomerProfile(req.params.id as string);
       res.json(profile);
     } catch (err: any) {
       res.status(404).json({ error: err.message });
@@ -115,7 +115,7 @@ export class PaymentController {
     try {
       const { reminderType } = req.body;
       const result = await DemandReminderEngine.sendDemandReminder({
-        demandId: req.params.id,
+        demandId: req.params.id as string,
         reminderType: reminderType || 'CUSTOM',
         userId: req.user?.id,
       });

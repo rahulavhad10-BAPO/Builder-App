@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ContractorService } from '../services/contractorService.js';
 import { OperationsService } from '../services/operationsService.js';
 import { AskProjectService } from '../services/rag/askProjectService.js';
+import { RAGIngestionService } from '../services/rag/ragIngestionService.js';
 import { AuditService } from '../services/auditService.js';
 import { NotificationEmailService } from '../services/notificationEmailService.js';
 import prisma from '../db/prisma.js';
@@ -18,7 +19,7 @@ export class ContractorController {
 
   static async getContractorById(req: Request, res: Response): Promise<void> {
     try {
-      const contractor = await ContractorService.getContractorById(req.params.id);
+      const contractor = await ContractorService.getContractorById(req.params.id as string);
       if (!contractor) {
         res.status(404).json({ error: 'Contractor not found' });
         return;
@@ -110,7 +111,7 @@ export class OperationsController {
   static async updateIssueStatus(req: Request, res: Response): Promise<void> {
     try {
       const { status, resolution } = req.body;
-      const updated = await OperationsService.updateIssueStatus(req.params.id, status, resolution);
+      const updated = await OperationsService.updateIssueStatus(req.params.id as string, status, resolution);
       res.json(updated);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -138,6 +139,45 @@ export class AskProjectController {
       }
 
       const result = await AskProjectService.handleQuery(query, projectId, req.user?.role);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+}
+
+export class RAGController {
+  static async getStatus(_req: Request, res: Response): Promise<void> {
+    try {
+      const isEnabled = process.env.RAG_ENABLED === 'true';
+      const chunkCount = await prisma.documentChunk.count();
+      const indexedDocs = await prisma.document.count({ where: { ragStatus: 'INDEXED' } });
+      const indexedDrawings = await prisma.drawing.count({ where: { ragStatus: 'INDEXED' } });
+      res.json({
+        enabled: isEnabled,
+        provider: RAGIngestionService.getProvider().name,
+        vectorDimensions: 384,
+        totalChunks: chunkCount,
+        indexedDocuments: indexedDocs,
+        indexedDrawings: indexedDrawings,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async reindexAll(_req: Request, res: Response): Promise<void> {
+    try {
+      const result = await RAGIngestionService.reindexAll();
+      res.json({ message: 'Vector reindexing completed successfully', ...result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async ingestDocument(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await RAGIngestionService.ingestDocument(req.params.id as string);
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

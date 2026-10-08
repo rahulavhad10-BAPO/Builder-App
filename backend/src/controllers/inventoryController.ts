@@ -92,7 +92,7 @@ export class DemandController {
         return;
       }
 
-      const updated = await MaterialDemandService.updateStatus(req.params.id, status, req.user?.id);
+      const updated = await MaterialDemandService.updateStatus(req.params.id as string, status, req.user?.id);
       res.json(updated);
     } catch (err: any) {
       res.status(400).json({ error: err.message });

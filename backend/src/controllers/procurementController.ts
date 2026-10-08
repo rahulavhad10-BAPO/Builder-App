@@ -61,7 +61,7 @@ export class ProcurementController {
 
   static async resolveException(req: Request, res: Response): Promise<void> {
     try {
-      const resolved = await ProcurementService.resolveException(req.params.id, req.user?.id);
+      const resolved = await ProcurementService.resolveException(req.params.id as string, req.user?.id);
       res.json(resolved);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -70,7 +70,7 @@ export class ProcurementController {
 
   static async verifyPO(req: Request, res: Response): Promise<void> {
     try {
-      const result = await ProcurementService.verifyPurchaseOrder(req.params.id);
+      const result = await ProcurementService.verifyPurchaseOrder(req.params.id as string);
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -106,7 +106,7 @@ export class ComplianceController {
   static async updateItem(req: Request, res: Response): Promise<void> {
     try {
       const { status, remarks, evidence } = req.body;
-      const updated = await ComplianceService.updateStatus(req.params.id, status, remarks, evidence, req.user?.id);
+      const updated = await ComplianceService.updateStatus(req.params.id as string, status, remarks, evidence, req.user?.id);
       res.json(updated);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -136,7 +136,7 @@ export class BOQController {
         res.status(400).json({ error: 'consumedQuantity is required' });
         return;
       }
-      const updated = await BOQService.updateConsumption(req.params.id, Number(consumedQuantity));
+      const updated = await BOQService.updateConsumption(req.params.id as string, Number(consumedQuantity));
       res.json(updated);
     } catch (err: any) {
       res.status(400).json({ error: err.message });

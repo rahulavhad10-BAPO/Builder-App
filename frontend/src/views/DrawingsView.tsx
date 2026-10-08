@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ApiClient } from '../api/client.js';
-import { Compass, ExternalLink } from 'lucide-react';
+import { Compass, ExternalLink, Sparkles } from 'lucide-react';
 
 interface DrawingsViewProps {
   projectId: string;
@@ -67,6 +67,7 @@ export const DrawingsView: React.FC<DrawingsViewProps> = ({ projectId }) => {
                 <th className="p-3">Revision</th>
                 <th className="p-3">Discipline</th>
                 <th className="p-3">Status</th>
+                <th className="p-3">Vector RAG</th>
                 <th className="p-3">Uploaded By</th>
                 <th className="p-3">Revision Date</th>
                 <th className="p-3 text-right">Action</th>
@@ -75,11 +76,11 @@ export const DrawingsView: React.FC<DrawingsViewProps> = ({ projectId }) => {
             <tbody className="divide-y divide-slate-800/80">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">Loading drawings...</td>
+                  <td colSpan={9} className="p-8 text-center text-slate-400">Loading drawings...</td>
                 </tr>
               ) : drawings.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-500">No drawings registered.</td>
+                  <td colSpan={9} className="p-8 text-center text-slate-500">No drawings registered.</td>
                 </tr>
               ) : (
                 drawings.map((dwg) => (
@@ -99,6 +100,12 @@ export const DrawingsView: React.FC<DrawingsViewProps> = ({ projectId }) => {
                     <td className="p-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300">
                         {dwg.status}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1 w-max">
+                        <Sparkles className="w-3 h-3 text-emerald-400" />
+                        <span>INDEXED</span>
                       </span>
                     </td>
                     <td className="p-3 text-slate-300">{dwg.uploadedBy}</td>

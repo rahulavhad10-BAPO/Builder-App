@@ -241,6 +241,7 @@ model Document {
   indexingError    String?
   contentVersion   Int               @default(1)
   versions         DocumentVersion[]
+  chunks           DocumentChunk[]
 }
 
 model DocumentVersion {
@@ -255,19 +256,38 @@ model DocumentVersion {
 }
 
 model Drawing {
-  id            String   @id @default(uuid())
-  drawingNumber String   @unique
+  id            String          @id @default(uuid())
+  drawingNumber String          @unique
   name          String
-  revision      String   // R0, R1, R2, R3
+  revision      String          // R0, R1, R2, R3
   projectId     String
-  project       Project  @relation(fields: [projectId], references: [id])
+  project       Project         @relation(fields: [projectId], references: [id])
   buildingId    String?
-  building      Building? @relation(fields: [buildingId], references: [id])
-  category      String   // ARCHITECTURAL, STRUCTURAL, MEP, ELECTRICAL, PLUMBING, FIRE_SAFETY
-  status        String   @default("APPROVED") // DRAFT, UNDER_REVIEW, APPROVED, SUPERSEDED
+  building      Building?       @relation(fields: [buildingId], references: [id])
+  category      String          // ARCHITECTURAL, STRUCTURAL, MEP, ELECTRICAL, PLUMBING, FIRE_SAFETY
+  status        String          @default("APPROVED") // DRAFT, UNDER_REVIEW, APPROVED, SUPERSEDED
   uploadedBy    String
-  date          DateTime @default(now())
+  date          DateTime        @default(now())
   fileUrl       String
+  ragStatus     String          @default("NOT_INDEXED")
+  lastIndexedAt DateTime?
+  chunks        DocumentChunk[]
+}
+
+model DocumentChunk {
+  id          String    @id @default(uuid())
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  drawingId   String?
+  drawing     Drawing?  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  chunkIndex  Int
+  content     String
+  embedding   String    // JSON stringified float array
+  metadata    String?   // JSON stringified metadata (doc name, category, project, building)
+  createdAt   DateTime  @default(now())
+
+  @@index([documentId])
+  @@index([drawingId])
 }
 
 model Contractor {

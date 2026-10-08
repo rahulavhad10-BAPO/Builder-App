@@ -6,7 +6,7 @@ import { InventoryController, DemandController } from '../controllers/inventoryC
 import { ProcurementController, ComplianceController, BOQController } from '../controllers/procurementController.js';
 import { FlatController } from '../controllers/flatController.js';
 import { CRMController, PaymentController } from '../controllers/crmController.js';
-import { ContractorController, OperationsController, AskProjectController, AdminController } from '../controllers/operationsController.js';
+import { ContractorController, OperationsController, AskProjectController, RAGController, AdminController } from '../controllers/operationsController.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 
@@ -92,6 +92,9 @@ router.get('/operations/meetings', requireAuth, OperationsController.getMeetings
 
 // 15. ASK PROJECT (STRUCTURED OPERATIONAL + RAG CONTRACT)
 router.post('/ask-project', requireAuth, requirePermission('askproject.query'), AskProjectController.query);
+router.get('/rag/status', requireAuth, RAGController.getStatus);
+router.post('/rag/reindex-all', requireAuth, requirePermission('admin.access'), RAGController.reindexAll);
+router.post('/rag/documents/:id/ingest', requireAuth, requirePermission('document.upload'), RAGController.ingestDocument);
 
 // 16. ADMIN & AUDIT
 router.get('/admin/audit-logs', requireAuth, requirePermission('admin.access'), AdminController.getAuditLogs);

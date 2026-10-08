@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { RAGIngestionService } from '../src/services/rag/ragIngestionService.js';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Clearing existing data...');
   // Clean up in reverse relation order
+  await prisma.documentChunk.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.emailLog.deleteMany();
   await prisma.notification.deleteMany();
@@ -844,8 +846,8 @@ async function main() {
     });
   }
 
-  console.log('Seeding Documents & Drawings...');
-  await prisma.document.create({
+  console.log('Seeding Documents & Drawings with Vector RAG Ingestion...');
+  const doc1 = await prisma.document.create({
     data: {
       organizationId: org.id,
       projectId: project1.id,
@@ -860,12 +862,13 @@ async function main() {
       uploadedBy: 'Deepa Nair',
       status: 'ACTIVE',
       permissions: 'ALL',
-      ragEnabled: false,
-      ragStatus: 'NOT_INDEXED',
+      ragEnabled: true,
+      ragStatus: 'INDEXED',
+      lastIndexedAt: new Date(),
     },
   });
 
-  await prisma.document.create({
+  const doc2 = await prisma.document.create({
     data: {
       organizationId: org.id,
       projectId: project1.id,
@@ -880,12 +883,13 @@ async function main() {
       uploadedBy: 'Vikram Mehta',
       status: 'ACTIVE',
       permissions: 'ADMIN_ONLY',
-      ragEnabled: false,
-      ragStatus: 'NOT_INDEXED',
+      ragEnabled: true,
+      ragStatus: 'INDEXED',
+      lastIndexedAt: new Date(),
     },
   });
 
-  await prisma.drawing.create({
+  const dwg1 = await prisma.drawing.create({
     data: {
       drawingNumber: 'DWG-SOL-STR-T1-008',
       name: 'Tower A 5th to 14th Typical Floor Structural Rebar Detailing',
@@ -896,10 +900,12 @@ async function main() {
       status: 'APPROVED',
       uploadedBy: 'Rajesh Patil',
       fileUrl: '/drawings/DWG-SOL-STR-T1-008_R2.dwg',
+      ragStatus: 'INDEXED',
+      lastIndexedAt: new Date(),
     },
   });
 
-  await prisma.drawing.create({
+  const dwg2 = await prisma.drawing.create({
     data: {
       drawingNumber: 'DWG-SOL-MEP-HYD-003',
       name: 'Central Firefighting Wet Riser & Sprinkler Schematic Layout',
@@ -910,8 +916,16 @@ async function main() {
       status: 'APPROVED',
       uploadedBy: 'Amit Desai',
       fileUrl: '/drawings/DWG-SOL-MEP-HYD-003_R1.dwg',
+      ragStatus: 'INDEXED',
+      lastIndexedAt: new Date(),
     },
   });
+
+  // Automatically chunk and vectorize seeded records
+  await RAGIngestionService.ingestDocument(doc1.id);
+  await RAGIngestionService.ingestDocument(doc2.id);
+  await RAGIngestionService.ingestDrawing(dwg1.id);
+  await RAGIngestionService.ingestDrawing(dwg2.id);
 
   console.log('Seeding Meetings & Actions...');
   const m1 = await prisma.meeting.create({

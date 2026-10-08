@@ -69,16 +69,17 @@ async function runE2ETests() {
   console.log('\n--- 6. ASK PROJECT & RAG STATE CONTRACT ---');
   const structuredQ1 = await AskProjectService.handleQuery('Which material demands are overdue?');
   assert(structuredQ1.queryType === 'STRUCTURED_RELATIONAL', 'Structured query routed to Relational DB');
-  assert(structuredQ1.answer.includes('overdue material demand'), 'Answered overdue demands accurately from database');
+  assert(Boolean(structuredQ1.answer?.includes('overdue material demand')), 'Answered overdue demands accurately from database');
 
   const structuredQ2 = await AskProjectService.handleQuery('What is the next demand for Flat A-1204?');
   assert(structuredQ2.queryType === 'STRUCTURED_RELATIONAL', 'A-1204 query routed to Structured Engine');
-  assert(structuredQ2.answer.includes('DEM-2024-') || structuredQ2.answer.includes('Flat A-1204'), 'Answered A-1204 milestone schedule accurately');
+  assert(Boolean(structuredQ2.answer?.includes('DEM-2024-') || structuredQ2.answer?.includes('Flat A-1204')), 'Answered A-1204 milestone schedule accurately');
 
-  const unstructuredQ = await AskProjectService.handleQuery('What does the contract specify regarding penalty clauses?');
-  assert(unstructuredQ.queryType === 'UNSTRUCTURED_DOCUMENT', 'Contract query identified as unstructured');
-  assert(unstructuredQ.ragConfigured === false, 'RAG_ENABLED=false honored');
-  assert(unstructuredQ.answer.includes('AI/RAG is not configured yet'), 'Returned clean non-hallucinatory notice: "AI/RAG is not configured yet."');
+  const unstructuredQ = await AskProjectService.handleQuery('What does the contractor agreement specify about penalties?');
+  assert(unstructuredQ.queryType === 'UNSTRUCTURED_DOCUMENT', 'Contract query identified as unstructured document query');
+  assert(unstructuredQ.ragConfigured === true, 'Live Vector RAG configured and active');
+  assert(Boolean(unstructuredQ.answer?.includes('penalty') || unstructuredQ.answer?.includes('0.5%')), 'Retrieved accurate penalty clause from vectorized contract agreement');
+  assert(unstructuredQ.sources && unstructuredQ.sources.length > 0, 'Returned ground-truth vector source citations');
 
   // 7. Complete Flat Commercial Lifecycle Simulation
   console.log('\n--- 7. COMPLETE FLAT COMMERCIAL LIFECYCLE TEST ---');

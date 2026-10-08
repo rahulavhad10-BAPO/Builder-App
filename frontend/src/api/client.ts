@@ -324,4 +324,15 @@ export class ApiClient {
   static getSystemStatus() {
     return this.request<any>('/admin/system-status');
   }
+
+  // RAG Vector Engine
+  static getRAGStatus() {
+    return this.request<any>('/rag/status');
+  }
+
+  static reindexVectors() {
+    return this.request<any>('/rag/reindex-all', {
+      method: 'POST',
+    });
+  }
 }

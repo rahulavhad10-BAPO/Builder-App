@@ -1,4 +1,5 @@
 import prisma from '../db/prisma.js';
+import { RAGIngestionService } from './rag/ragIngestionService.js';
 
 export class OperationsService {
   // DRAWINGS
@@ -27,7 +28,7 @@ export class OperationsService {
     fileUrl: string;
     uploadedBy: string;
   }) {
-    return prisma.drawing.create({
+    const drawing = await prisma.drawing.create({
       data: {
         drawingNumber: data.drawingNumber,
         name: data.name,
@@ -40,6 +41,16 @@ export class OperationsService {
         status: 'APPROVED',
       },
     });
+
+    if (process.env.RAG_ENABLED === 'true') {
+      try {
+        await RAGIngestionService.ingestDrawing(drawing.id);
+      } catch (err) {
+        console.warn('Auto RAG drawing ingestion deferred:', err);
+      }
+    }
+
+    return drawing;
   }
 
   // DAILY REPORTING

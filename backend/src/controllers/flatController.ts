@@ -49,7 +49,7 @@ export class FlatController {
 
   static async getFlat360(req: Request, res: Response): Promise<void> {
     try {
-      const data = await Flat360Service.getFlat360Data(req.params.id);
+      const data = await Flat360Service.getFlat360Data(req.params.id as string);
       res.json(data);
     } catch (err: any) {
       res.status(404).json({ error: err.message });
@@ -64,7 +64,7 @@ export class FlatController {
         return;
       }
 
-      const updated = await FlatInventoryService.updateFlatStatus(req.params.id, status, {
+      const updated = await FlatInventoryService.updateFlatStatus(req.params.id as string, status, {
         customerId: customerId || undefined,
         bookingDate: bookingDate ? new Date(bookingDate) : undefined,
         agreementDate: agreementDate ? new Date(agreementDate) : undefined,

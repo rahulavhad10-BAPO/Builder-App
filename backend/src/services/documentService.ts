@@ -1,5 +1,6 @@
 import prisma from '../db/prisma.js';
 import { AuditService } from './auditService.js';
+import { RAGIngestionService } from './rag/ragIngestionService.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -50,6 +51,15 @@ export class DocumentService {
       },
     });
 
+    // Auto-ingest into Vector RAG Store if enabled
+    if (process.env.RAG_ENABLED === 'true') {
+      try {
+        await RAGIngestionService.ingestDocument(doc.id);
+      } catch (err) {
+        console.warn('Auto RAG ingestion on upload deferred:', err);
+      }
+    }
+
     await AuditService.log({
       action: 'UPLOAD_DOCUMENT',
       module: 'DOCUMENT',
@@ -57,7 +67,8 @@ export class DocumentService {
       newValue: { name: doc.name, version: 1, category: doc.category },
     });
 
-    return doc;
+    const finalDoc = await prisma.document.findUnique({ where: { id: doc.id } });
+    return finalDoc || doc;
   }
 
   static async uploadNewVersion(documentId: string, data: {
@@ -101,6 +112,14 @@ export class DocumentService {
       },
     });
 
+    if (process.env.RAG_ENABLED === 'true') {
+      try {
+        await RAGIngestionService.ingestDocument(documentId);
+      } catch (err) {
+        console.warn('Auto RAG reindex on version update deferred:', err);
+      }
+    }
+
     await AuditService.log({
       action: 'NEW_VERSION_DOCUMENT',
       module: 'DOCUMENT',
@@ -109,7 +128,8 @@ export class DocumentService {
       newValue: { version: newVersion, changeSummary: data.changeSummary },
     });
 
-    return updated;
+    const finalUpdated = await prisma.document.findUnique({ where: { id: documentId } });
+    return finalUpdated || updated;
   }
 
   static async getDocuments(filters?: {
@@ -186,6 +206,12 @@ export class DocumentService {
       where: { id },
       data: { status: 'DELETED' },
     });
+
+    try {
+      await RAGIngestionService.deleteDocument(id);
+    } catch (err) {
+      console.warn('RAG vector cleanup deferred:', err);
+    }
 
     await AuditService.log({
       userId,
