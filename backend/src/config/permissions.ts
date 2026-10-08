@@ -1,109 +1,91 @@
+// 2-TIER ACCESS ARCHITECTURE:
+// Tier 1: ADMIN (Super Admin, Builder Admin) -> Full access (Uploads, Thresholds, POs, Approvals, Milestone Assignments, CSV Import)
+// Tier 2: STANDARD / OPERATIONAL (Finance, Contractor, Site Engineer, Procurement, Sales, Management, Broker) -> Restricted
+
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
+  // --- TIER 1: ADMIN (Full Control) ---
   'Super Admin': ['*'],
-  'Builder Admin': [
-    'document.view', 'document.upload', 'document.delete',
-    'drawing.view', 'drawing.upload',
-    'contractor.view', 'contractor.edit',
-    'inventory.view', 'inventory.edit',
-    'po.create', 'po.approve', 'po.verify',
-    'compliance.view', 'compliance.edit',
-    'flat.view', 'flat.edit',
-    'customer.view', 'customer.edit',
-    'demand.view', 'demand.create', 'demand.remind',
-    'payment.view', 'payment.create',
-    'sales.view', 'sales.edit',
-    'collection.view', 'collection.edit',
-    'reports.view',
-    'meeting.view', 'meeting.edit',
-    'issue.view', 'issue.edit',
-    'askproject.query',
-    'admin.access'
-  ],
-  'Project Manager': [
-    'document.view', 'document.upload',
-    'drawing.view', 'drawing.upload',
-    'contractor.view', 'contractor.edit',
+  'Builder Admin': ['*'],
+
+  // --- TIER 2: STANDARD / OPERATIONAL (Restricted from Uploads, Threshold edits, PO creation/approval) ---
+  'Finance': [
+    'document.view',
+    'drawing.view',
     'inventory.view',
-    'po.create', 'po.approve', 'po.verify',
-    'compliance.view', 'compliance.edit',
     'flat.view',
     'customer.view',
     'demand.view',
+    'payment.view',
+    'payment.create',
+    'collection.view',
     'reports.view',
-    'meeting.view', 'meeting.edit',
-    'issue.view', 'issue.edit',
+    'po.view',
+    'askproject.query'
+  ],
+  'Contractor': [
+    'document.view',
+    'drawing.view',
+    'contractor.view',
+    'reports.view',
+    'meeting.view',
+    'issue.view',
+    'issue.edit',
     'askproject.query'
   ],
   'Site Engineer': [
-    'document.view', 'document.upload',
+    'document.view',
     'drawing.view',
+    'inventory.view',
     'contractor.view',
-    'inventory.view', 'inventory.edit',
     'compliance.view',
     'reports.view',
     'meeting.view',
-    'issue.view', 'issue.edit',
+    'issue.view',
+    'issue.edit',
     'askproject.query'
   ],
   'Procurement': [
-    'inventory.view', 'inventory.edit',
-    'po.create', 'po.approve', 'po.verify',
+    'inventory.view',
+    'po.view',
     'contractor.view',
     'reports.view',
     'askproject.query'
   ],
   'Inventory Manager': [
-    'inventory.view', 'inventory.edit',
-    'po.create', 'po.verify',
+    'inventory.view',
+    'po.view',
     'reports.view',
-    'askproject.query'
-  ],
-  'Finance': [
-    'flat.view',
-    'customer.view',
-    'demand.view', 'demand.create', 'demand.remind',
-    'payment.view', 'payment.create',
-    'collection.view', 'collection.edit',
-    'reports.view',
-    'po.verify',
     'askproject.query'
   ],
   'Sales': [
-    'flat.view', 'flat.edit',
-    'customer.view', 'customer.edit',
-    'sales.view', 'sales.edit',
+    'flat.view',
+    'customer.view',
+    'sales.view',
     'demand.view',
-    'payment.view',
     'reports.view',
     'askproject.query'
   ],
   'CRM/Collections Manager': [
     'flat.view',
-    'customer.view', 'customer.edit',
-    'demand.view', 'demand.create', 'demand.remind',
-    'payment.view', 'payment.create',
-    'collection.view', 'collection.edit',
+    'customer.view',
+    'demand.view',
+    'payment.view',
+    'collection.view',
     'reports.view',
     'askproject.query'
   ],
   'Compliance Manager': [
-    'compliance.view', 'compliance.edit',
-    'document.view', 'document.upload',
+    'compliance.view',
+    'compliance.edit',
+    'document.view',
     'reports.view',
     'askproject.query'
-  ],
-  'Contractor': [
-    'drawing.view',
-    'contractor.view',
-    'issue.view', 'issue.edit',
-    'meeting.view'
   ],
   'Management': [
     'document.view',
     'drawing.view',
     'contractor.view',
     'inventory.view',
-    'po.verify',
     'compliance.view',
     'flat.view',
     'customer.view',
@@ -118,7 +100,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   'Broker': [
     'flat.view',
-    'sales.view'
+    'sales.view',
+    'customer.view'
   ]
 };
 
@@ -126,4 +109,8 @@ export function hasPermission(userRole: string, requiredPermission: string): boo
   const permissions = ROLE_PERMISSIONS[userRole] || [];
   if (permissions.includes('*')) return true;
   return permissions.includes(requiredPermission);
+}
+
+export function isAdminRole(userRole: string): boolean {
+  return ['Super Admin', 'Builder Admin'].includes(userRole);
 }

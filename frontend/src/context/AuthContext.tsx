@@ -5,6 +5,7 @@ import { ApiClient } from '../api/client.js';
 interface AuthContextType {
   user: User | null;
   permissions: string[];
+  isAdmin: boolean;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
   login: (email: string, password?: string) => Promise<void>;
@@ -89,11 +90,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return permissions.includes(perm);
   };
 
+  const isAdmin = user?.role === 'Super Admin' || user?.role === 'Builder Admin';
+
   return (
     <AuthContext.Provider
       value={{
         user,
         permissions,
+        isAdmin,
         loading,
         hasPermission,
         login,

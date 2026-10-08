@@ -87,6 +87,17 @@ export class ApiClient {
     });
   }
 
+  static getFlatDemands(flatId: string) {
+    return this.request<any[]>(`/flats/${flatId}/demands`);
+  }
+
+  static importFlatCSV(csvContent: string, projectId?: string) {
+    return this.request<any>('/flats/import-csv', {
+      method: 'POST',
+      body: JSON.stringify({ csvContent, projectId }),
+    });
+  }
+
   // Documents
   static getDocuments(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
@@ -132,6 +143,13 @@ export class ApiClient {
     });
   }
 
+  static updateInventoryThreshold(itemId: string, minStock: number, reorderLevel: number) {
+    return this.request<any>(`/inventory/items/${itemId}/threshold`, {
+      method: 'PATCH',
+      body: JSON.stringify({ minStock, reorderLevel }),
+    });
+  }
+
   // Material Demands
   static getMaterialDemands(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
@@ -165,6 +183,18 @@ export class ApiClient {
     return this.request<any>('/procurement/pos', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  static approvePO(id: string) {
+    return this.request<any>(`/procurement/pos/${id}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  static placeOrder(id: string) {
+    return this.request<any>(`/procurement/pos/${id}/place-order`, {
+      method: 'POST',
     });
   }
 

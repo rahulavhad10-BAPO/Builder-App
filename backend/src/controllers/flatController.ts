@@ -76,4 +76,28 @@ export class FlatController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  static async getAllDemands(req: Request, res: Response): Promise<void> {
+    try {
+      const demands = await FlatInventoryService.getAllDemands(req.params.id as string);
+      res.json(demands);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  static async importCSV(req: Request, res: Response): Promise<void> {
+    try {
+      const { csvData, projectId } = req.body;
+      if (!csvData) {
+        res.status(400).json({ error: 'csvData string or file content is required' });
+        return;
+      }
+
+      const result = await FlatInventoryService.importCSV(csvData, projectId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }

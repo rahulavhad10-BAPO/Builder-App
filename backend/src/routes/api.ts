@@ -34,6 +34,7 @@ router.post('/drawings', requireAuth, requirePermission('drawing.upload'), Opera
 // 5. MATERIAL INVENTORY
 router.get('/inventory/items', requireAuth, requirePermission('inventory.view'), InventoryController.getItems);
 router.post('/inventory/transactions', requireAuth, requirePermission('inventory.edit'), InventoryController.recordTransaction);
+router.patch('/inventory/items/:id/threshold', requireAuth, requirePermission('admin.access'), InventoryController.updateThreshold);
 
 // 6. MATERIAL DEMANDS
 router.get('/material-demands', requireAuth, DemandController.getDemands);
@@ -45,6 +46,8 @@ router.post('/material-demands/refresh-overdue', requireAuth, DemandController.r
 router.get('/procurement/vendors', requireAuth, ProcurementController.getVendors);
 router.get('/procurement/pos', requireAuth, ProcurementController.getPurchaseOrders);
 router.post('/procurement/pos', requireAuth, requirePermission('po.create'), ProcurementController.createPurchaseOrder);
+router.post('/procurement/pos/:id/approve', requireAuth, requirePermission('admin.access'), ProcurementController.approvePO);
+router.post('/procurement/pos/:id/place-order', requireAuth, requirePermission('admin.access'), ProcurementController.placeOrder);
 router.get('/procurement/exceptions', requireAuth, ProcurementController.getPOExceptions);
 router.post('/procurement/exceptions/:id/resolve', requireAuth, requirePermission('po.verify'), ProcurementController.resolveException);
 router.post('/procurement/verify-po/:id', requireAuth, requirePermission('po.verify'), ProcurementController.verifyPO);
@@ -62,7 +65,9 @@ router.patch('/compliance/:id', requireAuth, requirePermission('compliance.edit'
 router.get('/flats', requireAuth, requirePermission('flat.view'), FlatController.getFlats);
 router.get('/flats/dashboard', requireAuth, requirePermission('flat.view'), FlatController.getDashboardKPIs);
 router.get('/flats/:id/360', requireAuth, requirePermission('flat.view'), FlatController.getFlat360);
+router.get('/flats/:id/demands', requireAuth, requirePermission('flat.view'), FlatController.getAllDemands);
 router.patch('/flats/:id/status', requireAuth, requirePermission('flat.edit'), FlatController.updateStatus);
+router.post('/flats/import-csv', requireAuth, requirePermission('admin.access'), FlatController.importCSV);
 
 // 11. CRM, CUSTOMERS & BROKERS
 router.get('/crm/customers', requireAuth, requirePermission('customer.view'), CRMController.getCustomers);

@@ -197,4 +197,136 @@ export class FlatInventoryService {
       },
     });
   }
+
+  static async getAllDemands(flatId: string) {
+    return prisma.paymentDemand.findMany({
+      where: { flatId },
+      include: {
+        allocations: {
+          include: {
+            payment: true,
+          },
+        },
+        reminders: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { demandDate: 'asc' },
+    });
+  }
+
+  static async importCSV(csvContent: string, defaultProjectId?: string) {
+    const lines = csvContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length <= 1) throw new Error('CSV file contains no data rows');
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const project = await prisma.project.findFirst();
+    const projectId = defaultProjectId || project?.id;
+    if (!projectId) throw new Error('No project found to associate imported flats');
+
+    let importedCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim());
+      if (cols.length < 3) continue;
+
+      try {
+        const rowData: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          rowData[h] = cols[idx] || '';
+        });
+
+        const unitNumber = rowData['unitnumber'] || rowData['unit'] || rowData['flat'] || `UNIT-${i}`;
+        const buildingName = rowData['building'] || rowData['tower'] || 'Tower A';
+        const floorNumber = Number(rowData['floornumber'] || rowData['floor'] || Math.ceil(i / 4));
+        const config = rowData['configuration'] || rowData['bhk'] || '3BHK';
+        const carpet = Number(rowData['carpetarea'] || rowData['carpet'] || 1200);
+        const saleable = Number(rowData['saleablearea'] || rowData['saleable'] || 1600);
+        const basePrice = Number(rowData['baseprice'] || rowData['price'] || 12000000);
+        const otherCharges = Number(rowData['othercharges'] || 500000);
+        const status = (rowData['status'] || 'AVAILABLE').toUpperCase();
+
+        let building = await prisma.building.findFirst({
+          where: { projectId, name: { contains: buildingName } },
+        });
+        if (!building) {
+          building = await prisma.building.create({
+            data: {
+              projectId,
+              name: buildingName,
+              code: buildingName.slice(0, 3).toUpperCase(),
+              totalFloors: 15,
+            },
+          });
+        }
+
+        let customerId: string | null = null;
+        const custName = rowData['customername'] || rowData['customer'];
+        if (custName) {
+          const custEmail = rowData['customeremail'] || rowData['email'] || `${custName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+          const custPhone = rowData['customerphone'] || rowData['phone'] || `+91 98000 ${10000 + i}`;
+          let cust = await prisma.customer.findFirst({
+            where: { email: custEmail },
+          });
+          if (!cust) {
+            cust = await prisma.customer.create({
+              data: {
+                name: custName,
+                email: custEmail,
+                phone: custPhone,
+              },
+            });
+          }
+          customerId = cust.id;
+        }
+
+        const existingFlat = await prisma.flat.findFirst({
+          where: { projectId, unitNumber },
+        });
+
+        if (existingFlat) {
+          await prisma.flat.update({
+            where: { id: existingFlat.id },
+            data: {
+              buildingId: building.id,
+              floorNumber,
+              configuration: config,
+              carpetArea: carpet,
+              saleableArea: saleable,
+              basePrice,
+              otherCharges,
+              agreementValue: basePrice + otherCharges,
+              totalConsideration: basePrice + otherCharges,
+              status,
+              customerId: customerId || existingFlat.customerId,
+            },
+          });
+        } else {
+          await prisma.flat.create({
+            data: {
+              unitNumber,
+              projectId,
+              buildingId: building.id,
+              floorNumber,
+              configuration: config,
+              carpetArea: carpet,
+              saleableArea: saleable,
+              basePrice,
+              otherCharges,
+              agreementValue: basePrice + otherCharges,
+              totalConsideration: basePrice + otherCharges,
+              status,
+              customerId,
+            },
+          });
+        }
+        importedCount++;
+      } catch (err: any) {
+        errors.push(`Row ${i}: ${err.message}`);
+      }
+    }
+
+    return { importedCount, totalRows: lines.length - 1, errors };
+  }
 }

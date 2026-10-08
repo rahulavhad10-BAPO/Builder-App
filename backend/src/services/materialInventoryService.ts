@@ -122,4 +122,32 @@ export class MaterialInventoryService {
       data: { currentStock: calculatedStock },
     });
   }
+
+  static async updateThreshold(
+    itemId: string,
+    minStock?: number,
+    reorderLevel?: number,
+    updatedBy?: string
+  ) {
+    const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
+    if (!item) throw new Error('Inventory item not found');
+
+    const updated = await prisma.inventoryItem.update({
+      where: { id: itemId },
+      data: {
+        minStock: minStock !== undefined ? minStock : item.minStock,
+        reorderLevel: reorderLevel !== undefined ? reorderLevel : item.reorderLevel,
+      },
+    });
+
+    await AuditService.log({
+      action: 'UPDATE_INVENTORY_THRESHOLDS',
+      module: 'INVENTORY',
+      recordId: itemId,
+      previousValue: { minStock: item.minStock, reorderLevel: item.reorderLevel },
+      newValue: { minStock: updated.minStock, reorderLevel: updated.reorderLevel, updatedBy },
+    });
+
+    return updated;
+  }
 }

@@ -140,14 +140,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ projectId, onNavig
           />
 
           <KpiCard
-            title="Critical Site Snags & RFIs"
+            title="Critical Site Snags"
             value={`${kpis.criticalIssues} Critical`}
-            subValue={`${kpis.openIssues} Open Issues Total`}
-            badge="Site Ops"
+            subValue="Sourced from Site QA & Snag Registry"
+            badge="QA / Snags"
             badgeColor="bg-blue-500/20 text-blue-300"
             icon={AlertTriangle}
             iconColor="text-blue-400"
-            drillDownLabel="Inspect Open Issues"
+            drillDownLabel="Open Snag Tracker"
             onClick={() => onNavigate('operations', { tab: 'issues', priority: 'CRITICAL' })}
           />
         </div>

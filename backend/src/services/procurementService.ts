@@ -221,4 +221,42 @@ export class ProcurementService {
 
     return po;
   }
+
+  static async approvePO(poId: string, approvedBy?: string) {
+    const po = await prisma.purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new Error('Purchase order not found');
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id: poId },
+      data: { status: 'APPROVED' },
+    });
+
+    await AuditService.log({
+      action: 'APPROVE_PURCHASE_ORDER',
+      module: 'PROCUREMENT',
+      recordId: poId,
+      newValue: { status: 'APPROVED', approvedBy },
+    });
+
+    return updated;
+  }
+
+  static async placeOrder(poId: string, orderedBy?: string) {
+    const po = await prisma.purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new Error('Purchase order not found');
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id: poId },
+      data: { status: 'ORDERED' },
+    });
+
+    await AuditService.log({
+      action: 'PLACE_PURCHASE_ORDER',
+      module: 'PROCUREMENT',
+      recordId: poId,
+      newValue: { status: 'ORDERED', orderedBy },
+    });
+
+    return updated;
+  }
 }

@@ -1,0 +1,23 @@
+{
+  "name": "builder-operations-command-center",
+  "version": "1.0.0",
+  "description": "Builder Operations Command Center - Full-Stack Enterprise SaaS with Relational Vector RAG",
+  "main": "backend/src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "cd frontend && npm run build && cd ../backend && npx prisma generate",
+    "start": "cd backend && npm start",
+    "dev": "cd frontend && npm run build && cd ../backend && npm run dev",
+    "seed": "cd backend && npm run seed"
+  },
+  "keywords": [
+    "construction",
+    "builder",
+    "command-center",
+    "real-estate",
+    "rag",
+    "vector-search"
+  ],
+  "author": "",
+  "license": "ISC"
+}

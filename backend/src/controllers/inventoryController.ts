@@ -40,6 +40,21 @@ export class InventoryController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  static async updateThreshold(req: Request, res: Response): Promise<void> {
+    try {
+      const { minStock, reorderLevel } = req.body;
+      const updated = await MaterialInventoryService.updateThreshold(
+        req.params.id as string,
+        minStock !== undefined ? Number(minStock) : undefined,
+        reorderLevel !== undefined ? Number(reorderLevel) : undefined,
+        req.user?.name
+      );
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 export class DemandController {

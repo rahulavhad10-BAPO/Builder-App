@@ -49,6 +49,24 @@ export class ProcurementController {
     }
   }
 
+  static async approvePO(req: Request, res: Response): Promise<void> {
+    try {
+      const updated = await ProcurementService.approvePO(req.params.id as string, req.user?.name);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  static async placeOrder(req: Request, res: Response): Promise<void> {
+    try {
+      const updated = await ProcurementService.placeOrder(req.params.id as string, req.user?.name);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
   static async getPOExceptions(req: Request, res: Response): Promise<void> {
     try {
       const resolved = req.query.resolved !== undefined ? req.query.resolved === 'true' : undefined;

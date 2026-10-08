@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import apiRouter from './routes/api.js';
 
@@ -34,6 +35,18 @@ app.get('/health', (_req, res) => {
 
 // Mount consolidated API router
 app.use('/api', apiRouter);
+
+// Serve Frontend SPA on same URL
+const frontendDist = path.resolve(process.cwd(), '../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads') && !req.path.startsWith('/health')) {
+      return res.sendFile(path.join(frontendDist, 'index.html'));
+    }
+    next();
+  });
+}
 
 // Global Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

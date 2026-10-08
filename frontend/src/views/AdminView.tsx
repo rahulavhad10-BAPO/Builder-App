@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ApiClient } from '../api/client.js';
-import { Sliders, CheckCircle2 } from 'lucide-react';
+import { Sliders, CheckCircle2, Upload, FileSpreadsheet, AlertCircle } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'audit' | 'emails' | 'settings' | 'users'>('audit');
+  const [activeTab, setActiveTab] = useState<'audit' | 'emails' | 'settings' | 'users' | 'import-csv'>('audit');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [emailLogs, setEmailLogs] = useState<any[]>([]);
   const [settings, setSettings] = useState<any[]>([]);
@@ -11,6 +11,12 @@ export const AdminView: React.FC = () => {
   const [systemStatus, setSystemStatus] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  // CSV Import State
+  const [csvContent, setCsvContent] = useState<string>('');
+  const [importing, setImporting] = useState<boolean>(false);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -50,6 +56,44 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCsvContent(event.target?.result as string || '');
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const loadSampleCSV = () => {
+    const sample = `unitNumber,tower,floorNumber,configuration,carpetArea,saleableArea,basePrice,agreementValue,status,customerName,customerEmail,customerPhone\n` +
+      `C-101,Tower C,1,2BHK,780,1100,9000000,9800000,SOLD,Aditya Rao,aditya.rao@example.com,+91 99881 22334\n` +
+      `C-102,Tower C,1,3BHK,1150,1620,13200000,14200000,BOOKED,Meera Nair,meera.nair@example.com,+91 99882 33445\n` +
+      `C-103,Tower C,1,2BHK,780,1100,9000000,9000000,AVAILABLE,,,`;
+    setCsvContent(sample);
+  };
+
+  const handleImportCSV = async () => {
+    if (!csvContent.trim()) {
+      setImportError('Please provide CSV content or upload a CSV file.');
+      return;
+    }
+    setImporting(true);
+    setImportError(null);
+    setImportSuccess(null);
+    try {
+      const res = await ApiClient.importFlatCSV(csvContent);
+      setImportSuccess(`Successfully imported ${res.importedCount} units into Flat Inventory Master!`);
+      setCsvContent('');
+    } catch (e: any) {
+      setImportError(e.message || 'Failed to import CSV. Check format and try again.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Top Header */}
@@ -65,7 +109,7 @@ export const AdminView: React.FC = () => {
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs flex-wrap">
           <button
             onClick={() => setActiveTab('audit')}
             className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
@@ -88,7 +132,15 @@ export const AdminView: React.FC = () => {
               activeTab === 'users' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            User RBAC Directory ({users.length})
+            User RBAC ({users.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('import-csv')}
+            className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+              activeTab === 'import-csv' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Import Flat CSV
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -96,7 +148,7 @@ export const AdminView: React.FC = () => {
               activeTab === 'settings' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            Settings & RAG Switch
+            Settings & RAG
           </button>
         </div>
       </div>
@@ -252,7 +304,86 @@ export const AdminView: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 4: SETTINGS */}
+          {/* TAB 4: IMPORT FLAT INVENTORY CSV */}
+          {activeTab === 'import-csv' && (
+            <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-5 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-sky-500/20 text-sky-400">
+                  <FileSpreadsheet className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Import Flat / Unit Inventory via CSV</h3>
+                  <p className="text-slate-400">
+                    Import property inventory exported from external sales CRM, ERP or spreadsheets into the command center.
+                  </p>
+                </div>
+              </div>
+
+              {importSuccess && (
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>{importSuccess}</span>
+                </div>
+              )}
+
+              {importError && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/40 border border-slate-800">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={loadSampleCSV}
+                  className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 font-semibold border border-slate-700 cursor-pointer"
+                >
+                  Load Sample Data Template
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  CSV Data Content (Headers required: unitNumber, tower, floorNumber, configuration, carpetArea, saleableArea, basePrice, agreementValue, status, customerName, customerEmail, customerPhone)
+                </label>
+                <textarea
+                  rows={9}
+                  value={csvContent}
+                  onChange={(e) => setCsvContent(e.target.value)}
+                  placeholder="Paste CSV rows here..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white font-mono text-xs focus:outline-none focus:border-sky-500 leading-relaxed"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setCsvContent('')}
+                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={handleImportCSV}
+                  disabled={importing || !csvContent.trim()}
+                  className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>{importing ? 'Processing CSV...' : 'Import to Inventory Master'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
