@@ -275,19 +275,21 @@ model Drawing {
 }
 
 model DocumentChunk {
-  id          String    @id @default(uuid())
-  documentId  String?
-  document    Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  drawingId   String?
-  drawing     Drawing?  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
-  chunkIndex  Int
-  content     String
-  embedding   String    // JSON stringified float array
-  metadata    String?   // JSON stringified metadata (doc name, category, project, building)
-  createdAt   DateTime  @default(now())
+  id               String    @id @default(uuid())
+  documentId       String?
+  document         Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  drawingId        String?
+  drawing          Drawing?  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  contractorNoteId String?
+  chunkIndex       Int
+  content          String
+  embedding        String    // JSON stringified float array
+  metadata         String?   // JSON stringified metadata (doc name, category, project, building)
+  createdAt        DateTime  @default(now())
 
   @@index([documentId])
   @@index([drawingId])
+  @@index([contractorNoteId])
 }
 
 model Contractor {
@@ -306,6 +308,31 @@ model Contractor {
   dailyReports     DailyReport[]
   boqItems         BoqItem[]
   issues           IssueSnagRfi[]
+  progressNotes    ContractorProgressNote[]
+}
+
+model ContractorProgressNote {
+  id               String      @id @default(uuid())
+  contractorId     String
+  contractor       Contractor  @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  workPackageTitle String?
+  milestoneName    String?
+  progressPercent  Float       @default(0)
+  status           String      @default("IN_PROGRESS") // ON_TRACK, IN_PROGRESS, DELAYED, COMPLETED
+  reportingDate    DateTime    @default(now())
+  progressNotes    String      // Detailed text of progress achieved
+  manpowerDepl     String?     // e.g. "65 Pax deployed, 2 tower cranes active"
+  hasBlocker       Boolean     @default(false)
+  blockerDesc      String?
+  reportedTo       String?
+  blockerImpact    String?
+  submittedBy      String      @default("Contractor Lead")
+  ragStatus        String      @default("INDEXED") // INDEXED, FAILED
+  ragChunkId       String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([contractorId])
 }
 
 model Contract {

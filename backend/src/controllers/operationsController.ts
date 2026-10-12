@@ -29,6 +29,29 @@ export class ContractorController {
       res.status(500).json({ error: err.message });
     }
   }
+
+  static async addProgressNote(req: Request, res: Response): Promise<void> {
+    try {
+      const contractorId = req.params.id as string;
+      const note = await ContractorService.addProgressNote(contractorId, {
+        ...req.body,
+        submittedBy: req.body.submittedBy || req.user?.name || 'Site Supervisor',
+      });
+      res.status(201).json(note);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  static async getProgressNotes(req: Request, res: Response): Promise<void> {
+    try {
+      const contractorId = req.params.id as string | undefined;
+      const notes = await ContractorService.getProgressNotes(contractorId);
+      res.json(notes);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
 }
 
 export class OperationsController {

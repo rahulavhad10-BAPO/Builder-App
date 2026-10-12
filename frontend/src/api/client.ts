@@ -301,6 +301,18 @@ export class ApiClient {
     return this.request<any>(`/contractors/${id}`);
   }
 
+  static addContractorProgressNote(contractorId: string, data: any) {
+    return this.request<any>(`/contractors/${contractorId}/progress-notes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static getContractorProgressNotes(contractorId?: string) {
+    const url = contractorId ? `/contractors/${contractorId}/progress-notes` : '/contractors/progress-notes';
+    return this.request<any[]>(url);
+  }
+
   // Operations
   static getDailyReports(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();

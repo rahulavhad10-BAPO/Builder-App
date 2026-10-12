@@ -12,6 +12,9 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  Sparkles,
+  TrendingUp,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const ContractorsView: React.FC = () => {
@@ -29,6 +32,22 @@ export const ContractorsView: React.FC = () => {
   const [milestonesInput, setMilestonesInput] = useState<string>('');
   const [savingPackage, setSavingPackage] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  // Log Progress Note (RAG-Enabled) Modal
+  const [progressModalContractor, setProgressModalContractor] = useState<any | null>(null);
+  const [progressWorkPackage, setProgressWorkPackage] = useState<string>('');
+  const [progressMilestone, setProgressMilestone] = useState<string>('');
+  const [progressPercent, setProgressPercent] = useState<number>(75);
+  const [progressStatus, setProgressStatus] = useState<string>('ON_TRACK');
+  const [reportingDate, setReportingDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [progressNotes, setProgressNotes] = useState<string>('');
+  const [manpowerDepl, setManpowerDepl] = useState<string>('');
+  const [hasBlocker, setHasBlocker] = useState<boolean>(false);
+  const [blockerDesc, setBlockerDesc] = useState<string>('');
+  const [reportedTo, setReportedTo] = useState<string>('');
+  const [blockerImpact, setBlockerImpact] = useState<string>('');
+  const [submittedBy, setSubmittedBy] = useState<string>('Site Execution Lead');
+  const [savingProgress, setSavingProgress] = useState<boolean>(false);
 
   const loadContractors = () => {
     setLoading(true);
@@ -115,6 +134,58 @@ export const ContractorsView: React.FC = () => {
     setSavingPackage(false);
   };
 
+  const openProgressModal = (contractor: any) => {
+    setProgressModalContractor(contractor);
+    const defaultPackage = contractor.workPackages?.[0]?.title || `${contractor.scope || 'Civil Works'} Execution Scope`;
+    const defaultMilestone = contractor.workPackages?.[0]?.milestones?.[1]?.name || contractor.workPackages?.[0]?.milestones?.[0]?.name || 'Superstructure & RCC Milestones';
+    setProgressWorkPackage(defaultPackage);
+    setProgressMilestone(defaultMilestone);
+    setProgressPercent(contractor.latestProgressNote?.progressPercent || 75);
+    setProgressStatus(contractor.latestProgressNote?.status || 'ON_TRACK');
+    setReportingDate(new Date().toISOString().split('T')[0]);
+    setProgressNotes(
+      contractor.latestProgressNote?.progressNotes ||
+      `Completed reinforcement binding and shuttering inspection. Concreting pour ready with slump test 120mm confirmed.`
+    );
+    setManpowerDepl(contractor.latestProgressNote?.manpowerDepl || '64 Pax, 2 Tower Cranes, 1 Placer Boom');
+    setHasBlocker(false);
+    setBlockerDesc('');
+    setReportedTo('');
+    setBlockerImpact('');
+    setSubmittedBy('Site Execution Lead');
+  };
+
+  const handleSaveProgressNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!progressModalContractor) return;
+    setSavingProgress(true);
+    try {
+      const payload = {
+        workPackageTitle: progressWorkPackage,
+        milestoneName: progressMilestone,
+        progressPercent: Number(progressPercent),
+        status: progressStatus,
+        reportingDate,
+        progressNotes,
+        manpowerDepl,
+        hasBlocker,
+        blockerDesc: hasBlocker ? blockerDesc : undefined,
+        reportedTo: hasBlocker ? reportedTo : undefined,
+        blockerImpact: hasBlocker ? blockerImpact : undefined,
+        submittedBy,
+      };
+
+      await ApiClient.addContractorProgressNote(progressModalContractor.id, payload);
+      setFeedback(`✅ Progress report logged for ${progressModalContractor.name} and RAG-indexed! Senior executives can now query: "What is the project status for ${progressModalContractor.name}?" in Ask Project.`);
+      setProgressModalContractor(null);
+      loadContractors();
+    } catch (err: any) {
+      alert(err.message || 'Failed to save progress note');
+    } finally {
+      setSavingProgress(false);
+    }
+  };
+
   const formatINR = (amt: number) => `₹${(amt || 0).toLocaleString('en-IN')}`;
 
   return (
@@ -196,6 +267,86 @@ export const ContractorsView: React.FC = () => {
                     <div>Active Work Packages: <span className="text-white font-semibold">{c.workPackages?.length || 1} Assigned</span></div>
                   </div>
 
+                  {/* Latest Contractor Progress Report (RAG Enabled) */}
+                  <div className="mt-3.5 p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
+                        <span className="text-[11px] font-bold text-white uppercase tracking-wider">Progress Status</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1" title="Instantly queryable in Ask Project AI via RAG">
+                          <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+                          <span>RAG Indexed</span>
+                        </span>
+                        {c.latestProgressNote && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            c.latestProgressNote.status === 'COMPLETED'
+                              ? 'bg-purple-500/20 text-purple-300'
+                              : c.latestProgressNote.status === 'ON_TRACK'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : c.latestProgressNote.status === 'DELAYED'
+                              ? 'bg-rose-500/20 text-rose-300'
+                              : 'bg-amber-500/20 text-amber-300'
+                          }`}>
+                            {c.latestProgressNote.status.replace(/_/g, ' ')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {c.latestProgressNote ? (
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-300 font-medium truncate max-w-[190px]" title={c.latestProgressNote.milestoneName}>
+                            {c.latestProgressNote.milestoneName || 'Milestone Execution'}
+                          </span>
+                          <span className="font-mono font-bold text-sky-400">{c.latestProgressNote.progressPercent}%</span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              c.latestProgressNote.status === 'DELAYED'
+                                ? 'bg-rose-500'
+                                : c.latestProgressNote.status === 'COMPLETED'
+                                ? 'bg-purple-500'
+                                : 'bg-sky-500'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(5, c.latestProgressNote.progressPercent))}%` }}
+                          />
+                        </div>
+
+                        <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed italic bg-slate-900/60 p-2 rounded-lg border border-slate-800/60">
+                          "{c.latestProgressNote.progressNotes}"
+                        </p>
+
+                        {c.latestProgressNote.hasBlocker && (
+                          <div className="p-2 rounded-lg bg-rose-950/40 border border-rose-800/60 text-[10px] text-rose-300 flex items-start gap-1.5">
+                            <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold">Blocker: </span>
+                              <span>{c.latestProgressNote.blockerDesc}</span>
+                              {c.latestProgressNote.reportedTo && (
+                                <span className="text-slate-400 block mt-0.5">Escalated to: {c.latestProgressNote.reportedTo}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-900">
+                          <span>Logged by {c.latestProgressNote.submittedBy || 'Site Lead'}</span>
+                          <span>{new Date(c.latestProgressNote.reportingDate).toLocaleDateString('en-IN')}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-slate-900/60 border border-dashed border-slate-800 text-[11px] text-slate-400 text-center">
+                        No progress note logged yet. Click <span className="text-sky-400 font-semibold">"Log Progress"</span> below.
+                      </div>
+                    )}
+                  </div>
+
                   {/* Assigned Work Packages & Milestones Section */}
                   <div className="mt-4 pt-3 border-t border-slate-800">
                     <button
@@ -250,20 +401,31 @@ export const ContractorsView: React.FC = () => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+                <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs gap-1.5 flex-wrap">
                   <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300">
                     {c.status || 'ACTIVE'}
                   </span>
 
-                  {isAdmin && (
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => openAssignModal(c)}
-                      className="px-2.5 py-1 rounded bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                      onClick={() => openProgressModal(c)}
+                      className="px-2.5 py-1 rounded bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                      title="Log progress notes and trigger automatic RAG indexing"
                     >
-                      <PlusCircle className="w-3.5 h-3.5" />
-                      <span>Assign Scope</span>
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Log Progress (RAG)</span>
                     </button>
-                  )}
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => openAssignModal(c)}
+                        className="px-2 py-1 rounded bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>Assign Scope</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -368,6 +530,214 @@ export const ContractorsView: React.FC = () => {
                 >
                   <FileCheck2 className="w-3.5 h-3.5" />
                   <span>{savingPackage ? 'Saving...' : 'Upload Work Assignment'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Progress Note (RAG-Enabled) Modal */}
+      {progressModalContractor && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl p-6 shadow-2xl space-y-4 text-xs my-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Log Contractor Progress Report</h3>
+                  <p className="text-[11px] text-slate-400">
+                    Contractor: <span className="text-white font-semibold">{progressModalContractor.name}</span> &bull; <span className="text-sky-400 font-mono">{progressModalContractor.code}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProgressModalContractor(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProgressNote} className="space-y-3.5">
+              <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-800/40 text-[11px] text-purple-200 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-purple-300">RAG Vector Intelligence Enabled: </span>
+                  Upon saving, this progress report will be automatically chunked and embedded into the vector database. Senior leadership can ask natural language questions in <strong>Ask Project</strong> (e.g. <em>"What is the project status for {progressModalContractor.name}?"</em>) and receive an instant, accurate briefing.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Work Package Scope *</label>
+                  <input
+                    type="text"
+                    required
+                    value={progressWorkPackage}
+                    onChange={(e) => setProgressWorkPackage(e.target.value)}
+                    placeholder="e.g. Superstructure RCC Frame"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Active Milestone Target *</label>
+                  <input
+                    type="text"
+                    required
+                    value={progressMilestone}
+                    onChange={(e) => setProgressMilestone(e.target.value)}
+                    placeholder="e.g. Milestone 2: 15th Floor Slab Casting"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">
+                    Progress: <span className="font-mono text-purple-400 font-bold">{progressPercent}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={progressPercent}
+                    onChange={(e) => setProgressPercent(Number(e.target.value))}
+                    className="w-full accent-purple-500 mt-2 cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Execution Status *</label>
+                  <select
+                    value={progressStatus}
+                    onChange={(e) => setProgressStatus(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="ON_TRACK">ON TRACK (Green)</option>
+                    <option value="IN_PROGRESS">IN PROGRESS (Blue)</option>
+                    <option value="DELAYED">DELAYED (Red)</option>
+                    <option value="COMPLETED">COMPLETED (Purple)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Reporting Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={reportingDate}
+                    onChange={(e) => setReportingDate(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Manpower & Machinery Deployed</label>
+                <input
+                  type="text"
+                  value={manpowerDepl}
+                  onChange={(e) => setManpowerDepl(e.target.value)}
+                  placeholder="e.g. 74 Pax deployed, 2 Potain Cranes, 1 Concrete Placer Boom"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Detailed Progress Notes & EoD Achievements *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={progressNotes}
+                  onChange={(e) => setProgressNotes(e.target.value)}
+                  placeholder="Describe specific work completed, tests performed, consultant approvals, rebar tied, slabs poured..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 leading-relaxed"
+                />
+              </div>
+
+              {/* Site Blocker Checkbox */}
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasBlocker}
+                    onChange={(e) => setHasBlocker(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-800 text-rose-500 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-white font-semibold flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Report Critical Site Blocker / Delay Dependency</span>
+                  </span>
+                </label>
+
+                {hasBlocker && (
+                  <div className="space-y-2 pt-1 border-t border-slate-800/80 animate-in fade-in duration-150">
+                    <div>
+                      <label className="block text-slate-400 text-[11px] font-semibold mb-1">Blocker Description *</label>
+                      <input
+                        type="text"
+                        required={hasBlocker}
+                        value={blockerDesc}
+                        onChange={(e) => setBlockerDesc(e.target.value)}
+                        placeholder="e.g. Awaiting architectural layout clearance for chiller pump room"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-slate-400 text-[11px] font-semibold mb-1">Escalated To (Person)</label>
+                        <input
+                          type="text"
+                          value={reportedTo}
+                          onChange={(e) => setReportedTo(e.target.value)}
+                          placeholder="e.g. Vikram Mehta (Chief Architect)"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-rose-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-[11px] font-semibold mb-1">Schedule Delay Impact</label>
+                        <input
+                          type="text"
+                          value={blockerImpact}
+                          onChange={(e) => setBlockerImpact(e.target.value)}
+                          placeholder="e.g. 3-day hold on chiller manifold"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-rose-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Reported / Submitted By *</label>
+                <input
+                  type="text"
+                  required
+                  value={submittedBy}
+                  onChange={(e) => setSubmittedBy(e.target.value)}
+                  placeholder="e.g. Rajesh Patil (Site Execution Lead)"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setProgressModalContractor(null)}
+                  className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProgress}
+                  className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{savingProgress ? 'Indexing with Vector RAG...' : 'Save & Enable RAG'}</span>
                 </button>
               </div>
             </form>

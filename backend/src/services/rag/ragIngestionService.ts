@@ -123,6 +123,92 @@ export class RAGIngestionService {
     }
   }
 
+  static async ingestContractorProgressNote(noteId: string): Promise<{ success: boolean; status: string; message: string }> {
+    const note = await prisma.contractorProgressNote.findUnique({
+      where: { id: noteId },
+      include: { contractor: true },
+    });
+    if (!note) throw new Error('Contractor progress note not found');
+
+    if (!this.isRAGEnabled()) {
+      return { success: false, status: 'NOT_INDEXED', message: 'RAG disabled in configuration' };
+    }
+
+    try {
+      const formattedDate = new Date(note.reportingDate).toLocaleDateString('en-IN', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+
+      const chunkContent =
+        `[CONTRACTOR PROGRESS REPORT & EXECUTION STATUS]\n` +
+        `Contractor: ${note.contractor.name} (${note.contractor.code})\n` +
+        `Specialized Scope: ${note.contractor.scope}\n` +
+        `Work Package: ${note.workPackageTitle || 'General Construction Scope'}\n` +
+        `Key Milestone: ${note.milestoneName || 'Site Progress Milestone'}\n` +
+        `Progress Percentage: ${note.progressPercent}% Completed\n` +
+        `Schedule Health & Status: ${note.status}\n` +
+        `Reporting Date: ${formattedDate}\n` +
+        `Submitted By: ${note.submittedBy}\n` +
+        `Manpower & Machinery Deployed: ${note.manpowerDepl || 'Regular crew deployed'}\n` +
+        `Progress Notes & Achievements: ${note.progressNotes}\n` +
+        `Site Blockers & Delays: ${
+          note.hasBlocker
+            ? `CRITICAL BLOCKER REPORTED: ${note.blockerDesc}. Escalated to: ${note.reportedTo || 'Project Management'}. Delay Impact: ${note.blockerImpact || 'Under review'}.`
+            : 'Zero blockers reported. Work proceeding on schedule.'
+        }`;
+
+      // Remove existing chunk for this contractor note if any
+      await prisma.documentChunk.deleteMany({
+        where: { contractorNoteId: note.id },
+      });
+
+      const embedding = await VectorStore.generateEmbedding(chunkContent);
+
+      const metadata = {
+        sourceType: 'CONTRACTOR_PROGRESS',
+        title: `${note.contractor.name} - Progress Report (${note.milestoneName || 'Milestone Update'})`,
+        category: 'CONTRACTOR_PROGRESS',
+        contractorId: note.contractorId,
+        contractorName: note.contractor.name,
+        milestoneName: note.milestoneName,
+        progressPercent: note.progressPercent,
+        status: note.status,
+        date: note.reportingDate.toISOString(),
+        version: 1,
+      };
+
+      const chunk = await prisma.documentChunk.create({
+        data: {
+          contractorNoteId: note.id,
+          chunkIndex: 0,
+          content: chunkContent,
+          embedding: JSON.stringify(embedding),
+          metadata: JSON.stringify(metadata),
+        },
+      });
+
+      await prisma.contractorProgressNote.update({
+        where: { id: noteId },
+        data: {
+          ragStatus: 'INDEXED',
+          ragChunkId: chunk.id,
+        },
+      });
+
+      return {
+        success: true,
+        status: 'INDEXED',
+        message: 'Contractor progress note successfully chunked and indexed into RAG vector engine',
+      };
+    } catch (err: any) {
+      console.error('Failed to ingest contractor progress note:', err);
+      return { success: false, status: 'FAILED', message: err.message };
+    }
+  }
+
   static async updateDocument(documentId: string) {
     return this.ingestDocument(documentId);
   }

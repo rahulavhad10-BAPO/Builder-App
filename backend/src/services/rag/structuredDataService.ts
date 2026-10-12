@@ -148,10 +148,122 @@ export class StructuredDataService {
       }
     }
 
-    // 8. Daily Progress Reports (DPR) / Site Progress / Contractor Daily Reports
+    // 8. Contractor Progress Notes & Project Status based on Progress Reports
+    const contractorsList = await prisma.contractor.findMany({
+      include: {
+        progressNotes: { orderBy: { reportingDate: 'desc' } },
+        contracts: true,
+        dailyReports: { orderBy: { date: 'desc' }, take: 2 },
+      },
+    });
+
+    const isContractorOrProjectStatusQuery =
+      q.includes('progress note') ||
+      q.includes('progress report') ||
+      q.includes('contractor status') ||
+      q.includes('contractor progress') ||
+      q.includes('milestone status') ||
+      q.includes('milestone progress') ||
+      ((q.includes('project status') || q.includes('status of project') || q.includes('execution status')) && (q.includes('contractor') || q.includes('report') || q.includes('progress') || q.includes('site'))) ||
+      contractorsList.some(c => {
+        const n = c.name.toLowerCase();
+        const code = c.code.toLowerCase();
+        return (
+          (n.includes('larsen') && (q.includes('l&t') || q.includes('larsen') || q.includes('toubro') || q.includes('lt'))) ||
+          (n.includes('sterling') && (q.includes('sterling') || q.includes('wilson') || q.includes('sw'))) ||
+          (n.includes('kone') && q.includes('kone')) ||
+          (n.includes('apex') && q.includes('apex'))
+        );
+      });
+
+    if (isContractorOrProjectStatusQuery && !q.includes('summary of daily progress report') && !q.includes('daily progress report')) {
+      // Check for a specific contractor match
+      const matched = contractorsList.find(c => {
+        const n = c.name.toLowerCase();
+        const code = c.code.toLowerCase();
+        if (n.includes('larsen') && (q.includes('l&t') || q.includes('larsen') || q.includes('toubro') || q.includes('lt'))) return true;
+        if (n.includes('sterling') && (q.includes('sterling') || q.includes('wilson') || q.includes('sw'))) return true;
+        if (n.includes('kone') && q.includes('kone')) return true;
+        if (n.includes('apex') && q.includes('apex')) return true;
+        return q.includes(code);
+      });
+
+      if (matched) {
+        if (matched.progressNotes.length > 0) {
+          const latest = matched.progressNotes[0];
+          const formattedDate = new Date(latest.reportingDate).toLocaleDateString('en-IN', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          });
+
+          let ans = `Executive Project Status Briefing: ${matched.name} (${matched.scope})\n\n` +
+            `• Scope Package: ${latest.workPackageTitle || 'Main Scope Package'}\n` +
+            `• Current Milestone: ${latest.milestoneName || 'Active Milestone'}\n` +
+            `• Progress Completion: ${latest.progressPercent}% Completed [Status: ${latest.status.replace(/_/g, ' ')}]\n` +
+            `• Reporting Date: ${formattedDate} (Logged by: ${latest.submittedBy})\n` +
+            `• Manpower & Machinery: ${latest.manpowerDepl || 'Standard site crew deployed'}\n\n` +
+            `Detailed Progress Update:\n` +
+            `"${latest.progressNotes}"\n\n` +
+            `Site Blocker & Schedule Risk:\n` +
+            (latest.hasBlocker
+              ? `⚠️ CRITICAL BLOCKER REPORTED: ${latest.blockerDesc}\n  - Escalated To: ${latest.reportedTo || 'Project Director'}\n  - Delay Impact: ${latest.blockerImpact || 'Under assessment'}\n`
+              : `✅ Zero active blockers reported; work is proceeding on schedule.\n`) +
+            `\nContractor Scorecard: Rating ${matched.rating}/5.0 • Performance Score: ${matched.performanceScore}/100.`;
+
+          return {
+            matched: true,
+            answer: ans,
+            data: latest,
+            drillDownRoute: `/contractors?id=${matched.id}`,
+          };
+        } else {
+          return {
+            matched: true,
+            answer: `Project Status for ${matched.name} (${matched.scope}):\n\n` +
+              `• Active Contracts: ${matched.contracts.map(c => c.title).join('; ') || 'Structural Works'}\n` +
+              `• Performance Score: ${matched.performanceScore}/100 (Rating: ${matched.rating}/5.0)\n` +
+              (matched.dailyReports.length > 0
+                ? `• Recent Daily Work: "${matched.dailyReports[0].completedWork}" (Planned: "${matched.dailyReports[0].plannedWork}")\n`
+                : '') +
+              `\nNo formal milestone progress notes logged yet for this contractor. You can record a progress report in Contractor Master to enable instant RAG indexing.`,
+            data: matched,
+            drillDownRoute: `/contractors?id=${matched.id}`,
+          };
+        }
+      }
+
+      // General overview across all contractors
+      const totalNotes = contractorsList.reduce((acc, c) => acc + c.progressNotes.length, 0);
+      let overview = `Project Status Overview (Contractor Progress Reports & Milestone Submissions):\n\n`;
+
+      for (const c of contractorsList) {
+        if (c.progressNotes.length > 0) {
+          const p = c.progressNotes[0];
+          overview += `• ${c.name} (${c.scope}):\n` +
+            `  - Milestone: ${p.milestoneName} (${p.progressPercent}% Done, Status: ${p.status.replace(/_/g, ' ')})\n` +
+            `  - Latest Progress: "${p.progressNotes.slice(0, 160)}${p.progressNotes.length > 160 ? '...' : ''}"\n` +
+            `  - Blocker: ${p.hasBlocker ? `⚠️ ${p.blockerDesc}` : 'None (On Schedule)'}\n\n`;
+        } else {
+          overview += `• ${c.name} (${c.scope}):\n` +
+            `  - Performance Score: ${c.performanceScore}/100 • Pending milestone note submission in Contractor Master.\n\n`;
+        }
+      }
+
+      overview += `Total progress reports logged in system: ${totalNotes}.`;
+
+      return {
+        matched: true,
+        answer: overview,
+        data: contractorsList,
+        drillDownRoute: '/contractors',
+      };
+    }
+
+    // 9. Daily Progress Reports (DPR) / Site Progress
     if (
       q.includes('daily progress') ||
-      q.includes('progress report') ||
       q.includes('dpr') ||
       q.includes('site report') ||
       (q.includes('daily') && (q.includes('report') || q.includes('progress') || q.includes('summary')))
@@ -211,7 +323,7 @@ export class StructuredDataService {
       };
     }
 
-    // 9. Brokers & Channel Partners
+    // 10. Brokers & Channel Partners
     if (q.includes('broker') || q.includes('channel partner')) {
       const brokers = await prisma.broker.findMany({
         include: {
@@ -240,7 +352,7 @@ export class StructuredDataService {
       };
     }
 
-    // 10. Delayed Contractors
+    // 11. Delayed Contractors
     if (q.includes('contractor') && (q.includes('delay') || q.includes('delayed') || q.includes('performance'))) {
       const contractors = await prisma.contractor.findMany({
         include: {

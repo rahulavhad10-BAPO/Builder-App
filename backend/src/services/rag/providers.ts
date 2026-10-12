@@ -125,8 +125,19 @@ export class DatabaseVectorProvider implements IRAGProvider {
     const topCategory = topChunk.metadata.category;
     const qLower = query.toLowerCase();
 
-    if (topChunk.score < 0.30) {
-      return `No high-confidence document matches were found in uploaded contracts or drawings for "${query}". Daily progress reports and contractor logs are managed in the Site Operations module.`;
+    if (
+      topChunk.metadata?.sourceType === 'CONTRACTOR_PROGRESS' ||
+      topCategory === 'CONTRACTOR_PROGRESS' ||
+      topChunk.content.includes('[CONTRACTOR PROGRESS REPORT')
+    ) {
+      const cleanContent = topChunk.content
+        .replace(/\[CONTRACTOR PROGRESS REPORT & EXECUTION STATUS\]/g, '')
+        .trim();
+      return `Executive Contractor Progress Status Briefing (${topTitle}):\n\n${cleanContent}`;
+    }
+
+    if (topChunk.score < 0.28) {
+      return `No high-confidence document matches were found in uploaded contracts or drawings for "${query}". Operational progress reports and contractor logs are managed in the Contractor Master module.`;
     }
 
     if (qLower.includes('penalty') || qLower.includes('penalties') || qLower.includes('liquidated')) {

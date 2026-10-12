@@ -4,12 +4,14 @@ export interface ScoredChunk {
   chunkId: string;
   documentId?: string | null;
   drawingId?: string | null;
+  contractorNoteId?: string | null;
   content: string;
   score: number;
   metadata: {
-    sourceType: 'DOCUMENT' | 'DRAWING';
+    sourceType: 'DOCUMENT' | 'DRAWING' | 'CONTRACTOR_PROGRESS' | string;
     documentId?: string;
     drawingId?: string;
+    contractorNoteId?: string;
     title: string;
     category: string;
     projectId?: string;
@@ -17,6 +19,7 @@ export interface ScoredChunk {
     version?: number | string;
     chunkIndex: number;
     totalChunks: number;
+    [key: string]: any;
   };
 }
 
@@ -113,6 +116,24 @@ export class VectorStore {
       flat: 2.0,
       demand: 2.5,
       payment: 2.5,
+      progress: 3.5,
+      contractor: 3.5,
+      milestone: 3.5,
+      notes: 3.0,
+      report: 3.0,
+      blocker: 3.5,
+      elevator: 3.5,
+      elevators: 3.5,
+      traction: 3.5,
+      rail: 3.5,
+      hoist: 3.0,
+      alignment: 3.5,
+      motor: 3.0,
+      kone: 4.0,
+      sterling: 4.0,
+      wilson: 4.0,
+      larsen: 4.0,
+      toubro: 4.0,
     };
 
     // 1. Unigram feature hashing
@@ -290,18 +311,21 @@ export class VectorStore {
           chunkId: chunk.id,
           documentId: chunk.documentId,
           drawingId: chunk.drawingId,
+          contractorNoteId: chunk.contractorNoteId,
           content: chunk.content,
           score: Number(score.toFixed(4)),
           metadata: {
-            sourceType: chunk.documentId ? 'DOCUMENT' : 'DRAWING',
+            sourceType: chunk.documentId ? 'DOCUMENT' : (chunk.drawingId ? 'DRAWING' : (meta.sourceType || 'CONTRACTOR_PROGRESS')),
             documentId: chunk.documentId || undefined,
             drawingId: chunk.drawingId || undefined,
+            contractorNoteId: chunk.contractorNoteId || undefined,
             title,
             category,
             projectId: chunk.document?.projectId || chunk.drawing?.projectId || meta.projectId,
             version,
             chunkIndex: chunk.chunkIndex,
             totalChunks: meta.totalChunks || 1,
+            ...meta,
           },
         });
       }

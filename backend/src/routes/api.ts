@@ -86,7 +86,10 @@ router.get('/payments/reminders/history', requireAuth, PaymentController.getRemi
 
 // 13. CONTRACTORS & PERFORMANCE
 router.get('/contractors', requireAuth, requirePermission('contractor.view'), ContractorController.getContractors);
+router.get('/contractors/progress-notes', requireAuth, ContractorController.getProgressNotes);
 router.get('/contractors/:id', requireAuth, requirePermission('contractor.view'), ContractorController.getContractorById);
+router.post('/contractors/:id/progress-notes', requireAuth, ContractorController.addProgressNote);
+router.get('/contractors/:id/progress-notes', requireAuth, ContractorController.getProgressNotes);
 
 // 14. OPERATIONS (DAILY / MONTHLY REPORTS, MEETINGS, ISSUES)
 router.get('/operations/daily-reports', requireAuth, OperationsController.getDailyReports);
