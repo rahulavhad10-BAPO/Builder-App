@@ -39,8 +39,8 @@ export class DocumentController {
       const file = req.file;
       const { projectId, buildingId, name, type, category, permissions, expiryDate, approvalStatus, textContent } = req.body;
 
-      if (!projectId || !name || !category) {
-        res.status(400).json({ error: 'Project ID, document name, and category are required' });
+      if (!name || !category) {
+        res.status(400).json({ error: 'Document name and category are required' });
         return;
       }
 
@@ -49,16 +49,16 @@ export class DocumentController {
       const fileSize = file ? file.size : 102400;
 
       const doc = await DocumentService.uploadDocument({
-        organizationId: req.user!.organizationId,
-        projectId,
-        buildingId,
+        organizationId: req.user?.organizationId,
+        projectId: projectId || undefined,
+        buildingId: buildingId || undefined,
         name,
         type: type || 'PDF',
         category,
         fileType,
         storageReference,
         fileSize,
-        uploadedBy: req.user!.name,
+        uploadedBy: req.user?.name || 'Administrator',
         permissions: permissions || 'ALL',
         expiryDate: expiryDate ? new Date(expiryDate) : undefined,
         approvalStatus: approvalStatus || 'APPROVED',

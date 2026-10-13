@@ -26,8 +26,8 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !projectId) {
-      setError('Please provide document title and select project');
+    if (!name.trim()) {
+      setError('Please provide document title');
       return;
     }
 
@@ -36,7 +36,9 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
     try {
       const formData = new FormData();
-      formData.append('projectId', projectId);
+      if (projectId && projectId !== 'default') {
+        formData.append('projectId', projectId);
+      }
       formData.append(
         'name',
         name.endsWith(`.${type.toLowerCase()}`) ? name : `${name}.${type.toLowerCase()}`
@@ -109,9 +111,9 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-white focus:outline-none focus:border-sky-500"
               >
                 <option value="">Consolidated (All Towers)</option>
-                <option value="tower-a">Tower A (Sapphire)</option>
-                <option value="tower-b">Tower B (Emerald)</option>
-                <option value="tower-c">Tower C (Ruby)</option>
+                <option value="Tower A (Sapphire)">Tower A (Sapphire)</option>
+                <option value="Tower B (Emerald)">Tower B (Emerald)</option>
+                <option value="Tower 1 (Aero)">Tower 1 (Aero)</option>
               </select>
             </div>
 
