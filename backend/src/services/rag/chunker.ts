@@ -114,20 +114,25 @@ export class DocumentChunker {
       version: number;
       projectId: string;
       buildingId?: string | null;
+      buildingName?: string | null;
       storageReference: string;
+      approvalStatus?: string | null;
+      textContent?: string | null;
     },
     rawTextContent?: string
   ): ChunkResult[] {
     const fileExtracted = this.extractTextFromStorage(doc.storageReference);
-    const bodyContent = (rawTextContent || fileExtracted || '').trim();
+    const bodyContent = (rawTextContent || doc.textContent || fileExtracted || '').trim();
 
     // Context Header provides strong semantic anchor to every chunk
-    const contextHeader = `[DOCUMENT: "${doc.name}" | CATEGORY: ${doc.category} | TYPE: ${doc.type} | VERSION: v${doc.version}]`;
+    const statusTag = doc.approvalStatus ? ` | APPROVAL: ${doc.approvalStatus}` : '';
+    const buildingTag = doc.buildingName ? ` | TOWER: ${doc.buildingName}` : '';
+    const contextHeader = `[DOCUMENT RECORD: "${doc.name}" | CATEGORY: ${doc.category} | TYPE: ${doc.type} | VERSION: v${doc.version}${statusTag}${buildingTag}]`;
 
     // Construct enriched full text
     const fullText = bodyContent
       ? `${bodyContent}`
-      : `Document Record: ${doc.name}. Category: ${doc.category}. File Type: ${doc.type}. Version: ${doc.version}. Reference: ${doc.storageReference}.`;
+      : `Document Record: ${doc.name}. Category: ${doc.category}. File Type: ${doc.type}. Version: ${doc.version}. Reference: ${doc.storageReference}. Approval: ${doc.approvalStatus || 'APPROVED'}.`;
 
     const rawChunks = this.splitIntoChunks(fullText, contextHeader);
 
@@ -141,6 +146,8 @@ export class DocumentChunker {
         category: doc.category,
         projectId: doc.projectId,
         buildingId: doc.buildingId,
+        buildingName: doc.buildingName,
+        approvalStatus: doc.approvalStatus || 'APPROVED',
         version: doc.version,
         chunkIndex: idx,
         totalChunks: rawChunks.length,

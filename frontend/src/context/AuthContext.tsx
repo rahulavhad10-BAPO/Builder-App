@@ -73,9 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchRole = async (roleName: string) => {
-    const targetUser = availableUsers.find(u => u.role === roleName);
-    if (targetUser) {
-      await login(targetUser.email, 'Admin@123');
+    if (roleName === 'Super Admin' || roleName === 'Builder Admin') {
+      await login('admin@builderops.com', 'Admin@123');
+    } else {
+      await login('user@builderops.com', 'Admin@123');
     }
   };
 

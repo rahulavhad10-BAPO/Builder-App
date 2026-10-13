@@ -240,6 +240,20 @@ export class ApiClient {
     });
   }
 
+  static createComplianceItem(data: any) {
+    return this.request<any>('/compliance', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static addComplianceChecklistItem(id: string, label: string) {
+    return this.request<any>(`/compliance/${id}/checklist`, {
+      method: 'POST',
+      body: JSON.stringify({ label }),
+    });
+  }
+
   // CRM & Collections
   static getCustomers(search?: string) {
     const qs = search ? `?search=${encodeURIComponent(search)}` : '';
@@ -317,6 +331,13 @@ export class ApiClient {
   static getDailyReports(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request<any[]>(`/operations/daily-reports?${query}`);
+  }
+
+  static createDailyReport(data: any) {
+    return this.request<any>('/operations/daily-reports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static getMonthlyReports(projectId?: string) {

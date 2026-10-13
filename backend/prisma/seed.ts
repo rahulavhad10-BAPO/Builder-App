@@ -57,18 +57,11 @@ async function main() {
 
   const usersData = [
     { name: 'Siddharth Sharma', email: 'admin@builderops.com', role: 'Super Admin' },
+    { name: 'Rahul Verma', email: 'user@builderops.com', role: 'Normal User' },
     { name: 'Vikram Mehta', email: 'builder.admin@builderops.com', role: 'Builder Admin' },
-    { name: 'Ananya Roy', email: 'pm@builderops.com', role: 'Project Manager' },
-    { name: 'Rajesh Patil', email: 'engineer@builderops.com', role: 'Site Engineer' },
-    { name: 'Amit Desai', email: 'procurement@builderops.com', role: 'Procurement' },
-    { name: 'Suresh Kumar', email: 'inventory@builderops.com', role: 'Inventory Manager' },
-    { name: 'Kavita Menon', email: 'finance@builderops.com', role: 'Finance' },
-    { name: 'Arjun Singhania', email: 'sales@builderops.com', role: 'Sales' },
-    { name: 'Deepa Nair', email: 'compliance@builderops.com', role: 'Compliance Manager' },
-    { name: 'Harish Verma', email: 'contractor@builderops.com', role: 'Contractor' },
-    { name: 'Pooja Hegde', email: 'crm@builderops.com', role: 'CRM/Collections Manager' },
-    { name: 'Sunil Rao', email: 'broker@builderops.com', role: 'Broker' },
-    { name: 'R. K. Gupta', email: 'exec@builderops.com', role: 'Management' },
+    { name: 'Ananya Roy', email: 'pm@builderops.com', role: 'Normal User' },
+    { name: 'Rajesh Patil', email: 'engineer@builderops.com', role: 'Normal User' },
+    { name: 'Amit Desai', email: 'procurement@builderops.com', role: 'Normal User' },
   ];
 
   for (const u of usersData) {
@@ -633,6 +626,33 @@ async function main() {
     },
   });
 
+  const c4 = await prisma.contractor.create({
+    data: {
+      name: 'Apex Civil Works & Masonry Ltd',
+      code: 'CONTR-APEX-04',
+      contactPerson: 'Prakash Rao',
+      phone: '+91 11 4152 8899',
+      email: 'site.masonry@apexcivil.com',
+      scope: 'Internal Blockwork, External Plastering & Waterproofing',
+      rating: 4.5,
+      performanceScore: 88.0,
+      status: 'ACTIVE',
+    },
+  });
+
+  await prisma.contract.create({
+    data: {
+      contractorId: c4.id,
+      projectId: project1.id,
+      contractNumber: 'CNT-2024-APEX-004',
+      title: 'Masonry Blockwork & Waterproofing Package',
+      startDate: new Date('2024-05-01'),
+      endDate: new Date('2026-06-30'),
+      totalValue: 18500000,
+      status: 'ACTIVE',
+    },
+  });
+
   console.log('Seeding Material Inventory & Transactions...');
   const invItemsData = [
     { itemCode: 'MAT-CEM-OPC53', name: 'UltraTech Cement OPC 53 Grade', category: 'CEMENT', unit: 'BAGS', minStock: 500, reorderLevel: 800, currentStock: 450, location: 'Central Warehouse Shed 1' },
@@ -816,16 +836,92 @@ async function main() {
   console.log('Seeding Compliance Items & Dynamic percentage...');
   // 10 items: 7 completed, 2 in progress, 1 pending, 1 not applicable
   const complianceData = [
-    { name: 'RERA Registration Certificate & Quarterly Progress Report (QPR)', category: 'RERA', status: 'COMPLETED', remarks: 'Q2 2024 QPR uploaded to HRERA portal.' },
-    { name: 'Fire Department Provisional NOC & Hydrant Layout Approval', category: 'FIRE_SAFETY', status: 'COMPLETED', remarks: 'CFO approval letter NOC/2024/991 granted.' },
-    { name: 'State Pollution Control Board Consent to Establish (CTE)', category: 'ENVIRONMENT', status: 'COMPLETED', remarks: 'Valid until project completion.' },
-    { name: 'Labour Cess & BOCW Welfare Fund Clearance', category: 'LABOUR', status: 'COMPLETED', remarks: '1% cess deposited for Stage 2 RCC.' },
-    { name: 'Structural Safety & Stability Peer Review by IIT Delhi', category: 'QUALITY', status: 'COMPLETED', remarks: 'Vetting certificate signed by Head of Civil Dept.' },
-    { name: 'Height Clearance NOC from Airports Authority of India (AAI)', category: 'LOCAL_AUTHORITY', status: 'COMPLETED', remarks: 'Permitted up to 65.4 meters Above Ground Level.' },
-    { name: 'Environmental Clearance (EC) from SEIAA Haryana', category: 'ENVIRONMENT', status: 'COMPLETED', remarks: 'Compliance report submitted biannually.' },
-    { name: 'CGWA Ground Water Extraction Permission for Construction', category: 'BUILDING_PERMISSIONS', status: 'IN_PROGRESS', remarks: 'STP water supply agreement active, Borewell renewal pending.' },
-    { name: 'Lift Installation License & PWD Inspectorate Inspection', category: 'SAFETY', status: 'PENDING', remarks: 'Shaft handover scheduled next month.' },
-    { name: 'Coastal Regulation Zone (CRZ) Clearance', category: 'PROJECT_SPECIFIC', status: 'NOT_APPLICABLE', remarks: 'Site is inland, CRZ regulations not applicable.' },
+    {
+      name: 'Fire Department Provisional NOC & Hydrant Layout Approval',
+      category: 'FIRE_SAFETY',
+      status: 'IN_PROGRESS',
+      progressPercent: 80,
+      remarks: 'CFO approval letter NOC/2024/991 active. Final peripheral fire tender corridor check pending.',
+      evidence: 'https://docs.builderops.local/Fire_NOC_TowerA_B_Provisional.pdf',
+      docUrl: 'https://docs.builderops.local/Fire_NOC_TowerA_B_Provisional.pdf',
+      checklists: [
+        { id: 'c1', label: 'Sprinkler pipeline hydrostatic pressure test certified (12 kg/cm²)', checked: true },
+        { id: 'c2', label: '150mm NB central wet riser & internal landing valves flow rate verified', checked: true },
+        { id: 'c3', label: 'Dual 2000 LPM electric main and diesel standby booster pumps tested', checked: true },
+        { id: 'c4', label: 'Smoke damper automated cut-off integrated with fire alarm system', checked: true },
+        { id: 'c5', label: 'Peripheral 9-meter unobstructed fire vehicle turning radius cleared', checked: false },
+      ],
+    },
+    {
+      name: 'RERA Registration Certificate & Quarterly Progress Report (QPR)',
+      category: 'RERA',
+      status: 'COMPLETED',
+      progressPercent: 100,
+      remarks: 'Q2 2024 QPR uploaded to HRERA portal.',
+      evidence: 'https://docs.builderops.local/RERA_Registration_Cert.pdf',
+      docUrl: 'https://docs.builderops.local/RERA_Registration_Cert.pdf',
+      checklists: [
+        { id: 'c1', label: 'Encumbrance free land title verified by bank counsel', checked: true },
+        { id: 'c2', label: 'Sanctioned floor plans published on HRERA website', checked: true },
+        { id: 'c3', label: 'Designated 70% escrow account opened and operational', checked: true },
+      ],
+    },
+    {
+      name: 'State Pollution Control Board Consent to Establish (CTE)',
+      category: 'ENVIRONMENT',
+      status: 'IN_PROGRESS',
+      progressPercent: 67,
+      remarks: 'Valid until project completion. STP filter validation pending.',
+      evidence: 'https://docs.builderops.local/SPCB_CTE_Clearance.pdf',
+      docUrl: 'https://docs.builderops.local/SPCB_CTE_Clearance.pdf',
+      checklists: [
+        { id: 'c1', label: 'Ambient air quality monitoring sensors commissioned', checked: true },
+        { id: 'c2', label: 'Zero Liquid Discharge (ZLD) STP civil layout verified', checked: true },
+        { id: 'c3', label: 'DG stack height emission filter certification signed', checked: false },
+      ],
+    },
+    {
+      name: 'Structural Safety & Stability Peer Review by IIT Delhi',
+      category: 'QUALITY',
+      status: 'COMPLETED',
+      progressPercent: 100,
+      remarks: 'Vetting certificate signed by Head of Civil Dept, IIT Delhi.',
+      evidence: 'https://docs.builderops.local/IIT_Structural_Safety_Review.pdf',
+      docUrl: 'https://docs.builderops.local/IIT_Structural_Safety_Review.pdf',
+      checklists: [
+        { id: 'c1', label: 'Third-party IIT structural peer review model validated', checked: true },
+        { id: 'c2', label: 'M35/M40 grade 28-day concrete cube compressive tests cleared', checked: true },
+        { id: 'c3', label: 'Fe 550D TMT reinforcement mechanical coupler tensile test filed', checked: true },
+        { id: 'c4', label: 'Seismic ductile detailing verified as per IS 13920', checked: true },
+      ],
+    },
+    {
+      name: 'Lift Installation License & PWD Inspectorate Inspection',
+      category: 'SAFETY',
+      status: 'IN_PROGRESS',
+      progressPercent: 33,
+      remarks: 'Guide rails aligned. Hoist motor electrical inspection pending.',
+      evidence: null,
+      docUrl: null,
+      checklists: [
+        { id: 'c1', label: 'Shaft hoistway guide rail vertical laser alignment inspected', checked: true },
+        { id: 'c2', label: 'Car overspeed governor tripping test witnessed by PWD', checked: false },
+        { id: 'c3', label: 'Automatic Rescue Device (ARD) battery backup certified', checked: false },
+      ],
+    },
+    {
+      name: 'Labour Cess & BOCW Welfare Fund Clearance',
+      category: 'LABOUR',
+      status: 'COMPLETED',
+      progressPercent: 100,
+      remarks: '1% cess deposited for Stage 2 RCC.',
+      evidence: 'https://docs.builderops.local/Labour_Cess_Receipt.pdf',
+      docUrl: 'https://docs.builderops.local/Labour_Cess_Receipt.pdf',
+      checklists: [
+        { id: 'c1', label: 'Labour welfare cess calculated against construction value', checked: true },
+        { id: 'c2', label: 'Challan payment deposited in state treasury account', checked: true },
+      ],
+    },
   ];
 
   for (const comp of complianceData) {
@@ -841,7 +937,10 @@ async function main() {
         frequency: 'ONE_TIME',
         status: comp.status,
         remarks: comp.remarks,
-        evidence: comp.status === 'COMPLETED' ? 'https://docs.builderops.local/cert-verified.pdf' : null,
+        evidence: comp.evidence,
+        docUrl: comp.docUrl,
+        progressPercent: comp.progressPercent,
+        checklists: JSON.stringify(comp.checklists),
       },
     });
   }
@@ -1009,8 +1108,10 @@ async function main() {
     },
   });
 
-  console.log('Seeding Daily & Monthly Reports...');
-  await prisma.dailyReport.create({
+  console.log('Seeding Multi-Contractor Daily Reports for Tower A...');
+  process.env.RAG_ENABLED = 'true';
+
+  const dpr1 = await prisma.dailyReport.create({
     data: {
       date: new Date(),
       projectId: project1.id,
@@ -1018,14 +1119,87 @@ async function main() {
       contractorId: c1.id,
       manpower: 84,
       weather: 'Clear 32°C',
-      plannedWork: 'Slab reinforcement binding for 7th floor slab, shear wall shuttering',
-      completedWork: 'Completed 80% binding of bottom mesh, electrical conduit box placements',
-      delayedWork: 'Ready-mix batch dispatch delayed by 1 hour due to traffic advisory',
-      materialConsumed: '12 MT Fe 550D Rebars, 400 Bags Cement',
-      equipment: 'Tower Crane 1, Concrete Boom Placer, Bar Bending Machine',
-      safety: 'Zero lost time accidents. Daily toolbox briefing conducted for 84 workers.',
-      remarks: 'Inspection request raised to Site Engineer for tomorrow morning 9:00 AM.',
-      submittedBy: 'Harish Verma',
+      plannedWork: 'Slab reinforcement binding for 15th floor slab and shear wall shuttering',
+      completedWork: 'Completed 14th floor shear wall core shuttering and 85% 15th floor bottom mesh rebar binding. Cube test compressive strength achieved 42.5 MPa.',
+      delayedWork: null,
+      materialConsumed: '18 MT Fe 550D Rebars, 550 Bags Cement',
+      equipment: '2 Potain Tower Cranes, 1 Concrete Placer Boom',
+      safety: 'Zero lost time accidents. Daily toolbox safety briefing conducted for 84 workers.',
+      remarks: 'Ready for structural concrete pour inspection.',
+      hasBlocker: false,
+      blockerDesc: null,
+      reportedTo: null,
+      blockerImpact: null,
+      submittedBy: 'Rajesh K. (L&T Project Manager)',
+    },
+  });
+
+  const dpr2 = await prisma.dailyReport.create({
+    data: {
+      date: new Date(),
+      projectId: project1.id,
+      buildingId: towerA.id,
+      contractorId: c2.id,
+      manpower: 34,
+      weather: 'Clear 32°C',
+      plannedWork: 'Install 150mm MS firefighting central wet riser pipeline from 8th to 12th floor shaft',
+      completedWork: 'Wet riser pipeline pulled up to 10th floor. Hydrostatic pressure testing passed up to 6th floor at 12 kg/cm² with zero leakage.',
+      delayedWork: 'Basement 2 chiller pump room piping layout on hold.',
+      materialConsumed: '60m 150mm MS Class-C pipe, 12 landing valves',
+      equipment: '4 TIG welding stations, 2 pipe-threading rigs',
+      safety: 'Toolbox briefing on hot work and fire extinguisher permits.',
+      remarks: 'Waiting for drawing signoff.',
+      hasBlocker: true,
+      blockerDesc: 'Awaiting architectural clearance for basement 2 HVAC chiller pump room piping layout',
+      reportedTo: 'Vikram Mehta (Chief Architect)',
+      blockerImpact: '3-day potential hold on chiller manifold fabrication if drawing revision is delayed',
+      submittedBy: 'Sunil V. (Sterling MEP Lead)',
+    },
+  });
+
+  const dpr3 = await prisma.dailyReport.create({
+    data: {
+      date: new Date(),
+      projectId: project1.id,
+      buildingId: towerA.id,
+      contractorId: c3.id,
+      manpower: 18,
+      weather: 'Clear 32°C',
+      plannedWork: 'Align vertical traction guide rails for Passenger Elevator Car 1 & 2',
+      completedWork: 'Completed 90% guide rails vertical alignment and laser plumb verification up to 14th floor.',
+      delayedWork: null,
+      materialConsumed: '36 Guide rail brackets, 12 rail jointers',
+      equipment: 'Laser plumb aligner, electric chain hoist',
+      safety: 'Harness 100% tied-off in elevator hoistway.',
+      remarks: 'Machine room traction motor hoisting scheduled for next stage.',
+      hasBlocker: false,
+      blockerDesc: null,
+      reportedTo: null,
+      blockerImpact: null,
+      submittedBy: 'Anand Joshi (KONE Installation Specialist)',
+    },
+  });
+
+  const dpr4 = await prisma.dailyReport.create({
+    data: {
+      date: new Date(),
+      projectId: project1.id,
+      buildingId: towerA.id,
+      contractorId: c4.id,
+      manpower: 42,
+      weather: 'Clear 32°C',
+      plannedWork: 'AAC blockwork masonry on 6th & 7th floor internal partitions',
+      completedWork: 'Constructed 1,450 sq.ft AAC block masonry walls with copings and wire mesh reinforcements.',
+      delayedWork: null,
+      materialConsumed: '1,200 AAC blocks, 45 bags block adhesive mortar',
+      equipment: 'Scaffolding, mechanical mortar mixer',
+      safety: 'Guard rails and perimeter edge protection verified.',
+      remarks: 'Plumbing rough-in chaser cutting to begin following curing.',
+      hasBlocker: false,
+      blockerDesc: null,
+      reportedTo: null,
+      blockerImpact: null,
+      submittedBy: 'Prakash Rao (Apex Site Supervisor)',
     },
   });
 
@@ -1055,12 +1229,20 @@ async function main() {
   console.log('Seeding System Settings...');
   await prisma.systemSetting.createMany({
     data: [
-      { key: 'RAG_ENABLED', value: 'false', description: 'Master switch for RAG Vector Indexing' },
+      { key: 'RAG_ENABLED', value: 'true', description: 'Master switch for RAG Vector Indexing' },
       { key: 'DEMAND_REMINDER_SCHEDULE', value: '[-7, -3, 0, 3, 7]', description: 'Days offset relative to due date for customer demand reminders' },
       { key: 'MATERIAL_OVERDUE_ALERT_CC', value: 'procurement@builderops.com,admin@builderops.com', description: 'CC emails for overdue material demands' },
       { key: 'CURRENCY_CODE', value: 'INR', description: 'Base operating currency' },
     ],
   });
+
+  console.log('Ingesting all seed records into RAG Vector Engine...');
+  try {
+    const ragStats = await RAGIngestionService.reindexAll();
+    console.log(`RAG Ingestion Complete: ${ragStats.documentsIndexed} Docs, ${ragStats.drawingsIndexed} Drawings, ${ragStats.dailyReportsIndexed} DPRs indexed.`);
+  } catch (ragErr) {
+    console.warn('Initial RAG reindex error during seed:', ragErr);
+  }
 
   console.log('Seed completed successfully!');
 }

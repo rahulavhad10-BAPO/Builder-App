@@ -18,6 +18,8 @@ export class DocumentService {
     uploadedBy: string;
     expiryDate?: Date;
     permissions?: string;
+    approvalStatus?: string;
+    textContent?: string;
   }) {
     const doc = await prisma.document.create({
       data: {
@@ -33,6 +35,8 @@ export class DocumentService {
         uploadedBy: data.uploadedBy,
         expiryDate: data.expiryDate || null,
         permissions: data.permissions || 'ALL',
+        approvalStatus: data.approvalStatus || 'APPROVED',
+        textContent: data.textContent || null,
         version: 1,
         status: 'ACTIVE',
         ragEnabled: process.env.RAG_ENABLED === 'true',

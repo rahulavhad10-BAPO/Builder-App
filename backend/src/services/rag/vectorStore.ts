@@ -5,13 +5,15 @@ export interface ScoredChunk {
   documentId?: string | null;
   drawingId?: string | null;
   contractorNoteId?: string | null;
+  dailyReportId?: string | null;
   content: string;
   score: number;
   metadata: {
-    sourceType: 'DOCUMENT' | 'DRAWING' | 'CONTRACTOR_PROGRESS' | string;
+    sourceType: 'DOCUMENT' | 'DRAWING' | 'CONTRACTOR_PROGRESS' | 'DAILY_REPORT' | string;
     documentId?: string;
     drawingId?: string;
     contractorNoteId?: string;
+    dailyReportId?: string;
     title: string;
     category: string;
     projectId?: string;
@@ -293,9 +295,19 @@ export class VectorStore {
         continue;
       }
 
-      const score = this.cosineSimilarity(queryEmbedding, embeddingVec);
+      const cosineScore = this.cosineSimilarity(queryEmbedding, embeddingVec);
 
-      if (score >= minScore) {
+      // Keyword & token overlap feature
+      const qTerms = query.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+      const contentLower = chunk.content.toLowerCase();
+      let termHits = 0;
+      for (const term of qTerms) {
+        if (contentLower.includes(term)) termHits += 1;
+      }
+      const keywordRatio = qTerms.length > 0 ? (termHits / qTerms.length) : 0;
+      const hybridScore = (0.55 * cosineScore) + (0.45 * keywordRatio);
+
+      if (hybridScore >= minScore || cosineScore >= minScore) {
         let meta: any = {};
         try {
           meta = JSON.parse(chunk.metadata || '{}');
@@ -303,22 +315,32 @@ export class VectorStore {
           meta = {};
         }
 
-        const title = chunk.document?.name || (chunk.drawing ? `${chunk.drawing.drawingNumber} - ${chunk.drawing.name}` : meta.title || 'Unknown Document');
+        const title = chunk.document?.name || (chunk.drawing ? `${chunk.drawing.drawingNumber} - ${chunk.drawing.name}` : meta.title || 'Document Record');
         const category = chunk.document?.category || chunk.drawing?.category || meta.category || 'GENERAL';
         const version = chunk.document?.version || chunk.drawing?.revision || meta.version || 1;
+
+        const finalScore = Math.max(cosineScore, hybridScore);
 
         scored.push({
           chunkId: chunk.id,
           documentId: chunk.documentId,
           drawingId: chunk.drawingId,
           contractorNoteId: chunk.contractorNoteId,
+          dailyReportId: (chunk as any).dailyReportId,
           content: chunk.content,
-          score: Number(score.toFixed(4)),
+          score: Number(finalScore.toFixed(4)),
           metadata: {
-            sourceType: chunk.documentId ? 'DOCUMENT' : (chunk.drawingId ? 'DRAWING' : (meta.sourceType || 'CONTRACTOR_PROGRESS')),
+            sourceType: chunk.documentId
+              ? 'DOCUMENT'
+              : chunk.drawingId
+              ? 'DRAWING'
+              : (chunk as any).dailyReportId
+              ? 'DAILY_REPORT'
+              : (meta.sourceType || 'CONTRACTOR_PROGRESS'),
             documentId: chunk.documentId || undefined,
             drawingId: chunk.drawingId || undefined,
             contractorNoteId: chunk.contractorNoteId || undefined,
+            dailyReportId: (chunk as any).dailyReportId || undefined,
             title,
             category,
             projectId: chunk.document?.projectId || chunk.drawing?.projectId || meta.projectId,

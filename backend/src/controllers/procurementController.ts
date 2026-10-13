@@ -130,10 +130,58 @@ export class ComplianceController {
     }
   }
 
+  static async createItem(req: Request, res: Response): Promise<void> {
+    try {
+      const { name, category, description, projectId, buildingId, ownerName, dueDate, frequency, checklists, docUrl } = req.body;
+      if (!name || !projectId || !ownerName || !dueDate) {
+        res.status(400).json({ error: 'Name, projectId, ownerName, and dueDate are required' });
+        return;
+      }
+      const item = await ComplianceService.createComplianceItem({
+        name,
+        category: category || 'FIRE_SAFETY',
+        description: description || name,
+        projectId,
+        buildingId,
+        ownerName,
+        dueDate: new Date(dueDate),
+        frequency: frequency || 'ONE_TIME',
+        checklists,
+        docUrl,
+      });
+      res.status(201).json(item);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
   static async updateItem(req: Request, res: Response): Promise<void> {
     try {
-      const { status, remarks, evidence } = req.body;
-      const updated = await ComplianceService.updateStatus(req.params.id as string, status, remarks, evidence, req.user?.id);
+      const { status, remarks, evidence, checklists, progressPercent, docUrl } = req.body;
+      const updated = await ComplianceService.updateStatus(
+        req.params.id as string,
+        status,
+        remarks,
+        evidence,
+        req.user?.id,
+        checklists,
+        progressPercent,
+        docUrl
+      );
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  static async addChecklistItem(req: Request, res: Response): Promise<void> {
+    try {
+      const { label } = req.body;
+      if (!label || !label.trim()) {
+        res.status(400).json({ error: 'Checklist label is required' });
+        return;
+      }
+      const updated = await ComplianceService.addChecklistItem(req.params.id as string, label);
       res.json(updated);
     } catch (err: any) {
       res.status(400).json({ error: err.message });

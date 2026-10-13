@@ -209,6 +209,95 @@ export class RAGIngestionService {
     }
   }
 
+  static async ingestDailyReport(reportId: string): Promise<{ success: boolean; status: string; message: string }> {
+    const report = await prisma.dailyReport.findUnique({
+      where: { id: reportId },
+      include: { contractor: true, building: true, project: true },
+    });
+    if (!report) throw new Error('Daily report not found');
+
+    if (!this.isRAGEnabled()) {
+      return { success: false, status: 'NOT_INDEXED', message: 'RAG disabled in configuration' };
+    }
+
+    try {
+      const formattedDate = new Date(report.date).toLocaleDateString('en-IN', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+
+      const chunkContent =
+        `[DAILY PROGRESS REPORT (DPR) - SITE EXECUTION RECORD]\n` +
+        `Date: ${formattedDate}\n` +
+        `Tower / Structure: ${report.building?.name || 'Main Tower Structure'}\n` +
+        `Contractor: ${report.contractor?.name || 'Contractor'} (${report.contractor?.scope || 'Execution Scope'})\n` +
+        `Manpower Deployed: ${report.manpower} Pax\n` +
+        `Weather: ${report.weather}\n` +
+        `Planned Work for Day: ${report.plannedWork}\n` +
+        `Work Achieved End of Day (EoD): ${report.completedWork}\n` +
+        `Pending / Delayed Work: ${report.delayedWork || 'None'}\n` +
+        `Safety Adherence: ${report.safety || 'Zero incidents / PPE verified'}\n` +
+        `Site Blocker & Risk: ${
+          report.hasBlocker || (report.blockerDesc && report.blockerDesc.trim().length > 0)
+            ? `⚠️ CRITICAL SITE BLOCKER: ${report.blockerDesc}. Escalated to: ${report.reportedTo || 'Project Lead'}. Delay Impact: ${report.blockerImpact || 'Under assessment'}.`
+            : report.issues && report.issues !== 'None'
+            ? `Site Issue: ${report.issues}`
+            : '✅ Zero site blockers reported; execution on schedule.'
+        }\n` +
+        `Submitted By: ${report.submittedBy}`;
+
+      // Remove existing chunk for this daily report if any
+      await prisma.documentChunk.deleteMany({
+        where: { dailyReportId: report.id },
+      });
+
+      const embedding = await VectorStore.generateEmbedding(chunkContent);
+
+      const metadata = {
+        sourceType: 'DAILY_REPORT',
+        title: `DPR: ${report.building?.name || 'Site'} - ${report.contractor?.name || 'Contractor'} (${formattedDate})`,
+        category: 'DAILY_REPORT',
+        tower: report.building?.name,
+        buildingId: report.buildingId,
+        contractorId: report.contractorId,
+        contractorName: report.contractor?.name,
+        date: report.date.toISOString(),
+        manpower: report.manpower,
+        hasBlocker: report.hasBlocker,
+        version: 1,
+      };
+
+      const chunk = await prisma.documentChunk.create({
+        data: {
+          dailyReportId: report.id,
+          chunkIndex: 0,
+          content: chunkContent,
+          embedding: JSON.stringify(embedding),
+          metadata: JSON.stringify(metadata),
+        },
+      });
+
+      await prisma.dailyReport.update({
+        where: { id: reportId },
+        data: {
+          ragStatus: 'INDEXED',
+          ragChunkId: chunk.id,
+        },
+      });
+
+      return {
+        success: true,
+        status: 'INDEXED',
+        message: 'Daily progress report successfully indexed into RAG vector engine',
+      };
+    } catch (err: any) {
+      console.error('Failed to ingest daily report:', err);
+      return { success: false, status: 'FAILED', message: err.message };
+    }
+  }
+
   static async updateDocument(documentId: string) {
     return this.ingestDocument(documentId);
   }
@@ -223,9 +312,10 @@ export class RAGIngestionService {
     return this.ingestDocument(documentId);
   }
 
-  static async reindexAll(): Promise<{ documentsIndexed: number; drawingsIndexed: number }> {
+  static async reindexAll(): Promise<{ documentsIndexed: number; drawingsIndexed: number; dailyReportsIndexed: number }> {
     const docs = await prisma.document.findMany({ where: { status: 'ACTIVE' } });
     const drawings = await prisma.drawing.findMany();
+    const dailyReports = await prisma.dailyReport.findMany();
 
     let docCount = 0;
     for (const d of docs) {
@@ -239,7 +329,13 @@ export class RAGIngestionService {
       drawingCount++;
     }
 
-    return { documentsIndexed: docCount, drawingsIndexed: drawingCount };
+    let dprCount = 0;
+    for (const dpr of dailyReports) {
+      await this.ingestDailyReport(dpr.id);
+      dprCount++;
+    }
+
+    return { documentsIndexed: docCount, drawingsIndexed: drawingCount, dailyReportsIndexed: dprCount };
   }
 
   static async getIndexingStatus(documentId: string) {

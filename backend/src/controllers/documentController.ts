@@ -37,7 +37,7 @@ export class DocumentController {
   static async uploadDocument(req: Request, res: Response): Promise<void> {
     try {
       const file = req.file;
-      const { projectId, buildingId, name, type, category, permissions, expiryDate } = req.body;
+      const { projectId, buildingId, name, type, category, permissions, expiryDate, approvalStatus, textContent } = req.body;
 
       if (!projectId || !name || !category) {
         res.status(400).json({ error: 'Project ID, document name, and category are required' });
@@ -61,6 +61,8 @@ export class DocumentController {
         uploadedBy: req.user!.name,
         permissions: permissions || 'ALL',
         expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+        approvalStatus: approvalStatus || 'APPROVED',
+        textContent: textContent || undefined,
       });
 
       res.status(201).json(doc);

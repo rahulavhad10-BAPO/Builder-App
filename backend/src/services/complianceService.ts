@@ -44,16 +44,90 @@ export class ComplianceService {
     };
   }
 
-  static async updateStatus(id: string, status: string, remarks?: string, evidence?: string, userId?: string) {
+  static async createComplianceItem(data: {
+    name: string;
+    category: string;
+    description: string;
+    projectId: string;
+    buildingId?: string;
+    ownerName: string;
+    dueDate: Date;
+    frequency?: string;
+    checklists?: Array<{ id: string; label: string; checked: boolean }>;
+    docUrl?: string;
+  }) {
+    const initialChecklists = data.checklists && data.checklists.length > 0
+      ? data.checklists
+      : [
+          { id: 'c1', label: 'Technical documentation & statutory application submission', checked: false },
+          { id: 'c2', label: 'Competent authority on-site physical inspection', checked: false },
+          { id: 'c3', label: 'Scrutiny fee verification & NOC / endorsement issuance', checked: false },
+        ];
+
+    const item = await prisma.complianceItem.create({
+      data: {
+        name: data.name,
+        category: data.category,
+        description: data.description,
+        projectId: data.projectId,
+        buildingId: data.buildingId || null,
+        ownerName: data.ownerName,
+        dueDate: data.dueDate,
+        frequency: data.frequency || 'ONE_TIME',
+        status: 'PENDING',
+        checklists: JSON.stringify(initialChecklists),
+        progressPercent: 0,
+        docUrl: data.docUrl || null,
+      },
+      include: {
+        project: { select: { id: true, name: true, code: true } },
+        building: { select: { id: true, name: true, code: true } },
+      },
+    });
+
+    return item;
+  }
+
+  static async updateStatus(
+    id: string,
+    status?: string,
+    remarks?: string,
+    evidence?: string,
+    userId?: string,
+    checklists?: any[],
+    progressPercent?: number,
+    docUrl?: string
+  ) {
     const existing = await prisma.complianceItem.findUnique({ where: { id } });
     if (!existing) throw new Error('Compliance item not found');
 
+    const updateData: any = {};
+    if (status !== undefined) updateData.status = status;
+    if (remarks !== undefined) updateData.remarks = remarks;
+    if (evidence !== undefined) updateData.evidence = evidence;
+    if (docUrl !== undefined) updateData.docUrl = docUrl;
+
+    if (checklists !== undefined) {
+      updateData.checklists = JSON.stringify(checklists);
+      const total = checklists.length;
+      const checked = checklists.filter(c => c.checked).length;
+      const calcPct = total > 0 ? Math.round((checked / total) * 100) : 0;
+      updateData.progressPercent = progressPercent !== undefined ? progressPercent : calcPct;
+      if (updateData.progressPercent === 100) {
+        updateData.status = 'COMPLETED';
+      } else if (updateData.progressPercent > 0) {
+        updateData.status = 'IN_PROGRESS';
+      }
+    } else if (progressPercent !== undefined) {
+      updateData.progressPercent = progressPercent;
+    }
+
     const updated = await prisma.complianceItem.update({
       where: { id },
-      data: {
-        status,
-        remarks: remarks !== undefined ? remarks : existing.remarks,
-        evidence: evidence !== undefined ? evidence : existing.evidence,
+      data: updateData,
+      include: {
+        project: { select: { id: true, name: true, code: true } },
+        building: { select: { id: true, name: true, code: true } },
       },
     });
 
@@ -63,9 +137,44 @@ export class ComplianceService {
       module: 'COMPLIANCE',
       recordId: id,
       previousValue: { status: existing.status },
-      newValue: { status, remarks, evidence },
+      newValue: { status: updated.status, progressPercent: updated.progressPercent, remarks },
     });
 
     return updated;
+  }
+
+  static async addChecklistItem(id: string, label: string) {
+    const item = await prisma.complianceItem.findUnique({ where: { id } });
+    if (!item) throw new Error('Compliance item not found');
+
+    let currentChecklist: Array<{ id: string; label: string; checked: boolean }> = [];
+    try {
+      currentChecklist = item.checklists ? JSON.parse(item.checklists) : [];
+    } catch {
+      currentChecklist = [];
+    }
+
+    const newItem = {
+      id: `chk-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      label: label.trim(),
+      checked: false,
+    };
+
+    const updatedList = [...currentChecklist, newItem];
+    const total = updatedList.length;
+    const checked = updatedList.filter(c => c.checked).length;
+    const calcPct = total > 0 ? Math.round((checked / total) * 100) : 0;
+
+    return prisma.complianceItem.update({
+      where: { id },
+      data: {
+        checklists: JSON.stringify(updatedList),
+        progressPercent: calcPct,
+      },
+      include: {
+        project: { select: { id: true, name: true, code: true } },
+        building: { select: { id: true, name: true, code: true } },
+      },
+    });
   }
 }

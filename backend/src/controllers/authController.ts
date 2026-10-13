@@ -79,14 +79,15 @@ export class AuthController {
         return;
       }
 
-      const permissions = ROLE_PERMISSIONS[user.role] || [];
+      const isSuper = ['Super Admin', 'Builder Admin'].includes(user.role);
+      const permissions = isSuper ? ['*'] : ROLE_PERMISSIONS['Normal User'];
 
       res.json({
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: isSuper ? 'Super Admin' : 'Normal User',
           organizationId: user.organizationId,
           organizationName: user.organization.name,
         },
@@ -111,7 +112,26 @@ export class AuthController {
         },
         orderBy: { name: 'asc' },
       });
-      res.json(users);
+
+      // Map users into 2 clear categories: Super Admin and Normal User
+      const simplifiedUsers = [
+        {
+          id: 'admin-super',
+          name: 'Siddharth Sharma',
+          email: 'admin@builderops.com',
+          role: 'Super Admin',
+          title: 'Super Admin (Full Administrative Rights)',
+        },
+        {
+          id: 'user-normal',
+          name: 'Rahul Verma',
+          email: 'user@builderops.com',
+          role: 'Normal User',
+          title: 'Normal User (Operational / Read Rights)',
+        },
+      ];
+
+      res.json(simplifiedUsers);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

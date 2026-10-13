@@ -15,17 +15,12 @@ export const Header: React.FC<HeaderProps> = ({
   projects,
   onOpenAskProject,
 }) => {
-  const { user, switchRole, availableUsers } = useAuth();
+  const { user, switchRole } = useAuth();
 
   const roleColors: Record<string, string> = {
     'Super Admin': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-    'Builder Admin': 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-    'Project Manager': 'bg-sky-500/20 text-sky-300 border-sky-500/30',
-    'Site Engineer': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-    'Procurement': 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    'Finance': 'bg-green-500/20 text-green-300 border-green-500/30',
-    'Sales': 'bg-pink-500/20 text-pink-300 border-pink-500/30',
-    'Contractor': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+    'Builder Admin': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    'Normal User': 'bg-sky-500/20 text-sky-300 border-sky-500/30',
   };
 
   const currentRoleColor = user ? (roleColors[user.role] || 'bg-slate-700 text-slate-300 border-slate-600') : '';
@@ -39,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-sky-500 font-semibold"
+            className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-sky-500 font-semibold cursor-pointer"
           >
             <option value="">All Projects (Consolidated)</option>
             {projects.map((p) => (
@@ -61,20 +56,17 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* User & Live RBAC Role Switcher */}
       <div className="flex items-center gap-4">
-        {/* Role Switcher Tester */}
+        {/* 2-Tier Role Switcher */}
         <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800">
           <Shield className="w-3.5 h-3.5 text-sky-400" />
-          <span className="text-[11px] text-slate-400">Switch Role (RBAC):</span>
+          <span className="text-[11px] text-slate-400">Current Role (RBAC):</span>
           <select
-            value={user?.role || 'Super Admin'}
+            value={user?.role === 'Builder Admin' ? 'Super Admin' : user?.role || 'Super Admin'}
             onChange={(e) => switchRole(e.target.value)}
-            className="bg-slate-800 text-sky-300 text-xs rounded px-2 py-1 border border-slate-700 focus:outline-none font-medium cursor-pointer"
+            className="bg-slate-800 text-sky-300 text-xs rounded px-2.5 py-1 border border-slate-700 focus:outline-none font-semibold cursor-pointer"
           >
-            {availableUsers.map((u) => (
-              <option key={u.id} value={u.role}>
-                {u.role} ({u.name.split(' ')[0]})
-              </option>
-            ))}
+            <option value="Super Admin">Super Admin (Full Admin Control)</option>
+            <option value="Normal User">Normal User (Standard Operations)</option>
           </select>
         </div>
 

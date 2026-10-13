@@ -70,12 +70,27 @@ export class OperationsService {
   }
 
   static async createDailyReport(data: any) {
-    return prisma.dailyReport.create({
+    const report = await prisma.dailyReport.create({
       data: {
         ...data,
         date: new Date(data.date),
       },
+      include: {
+        contractor: true,
+        building: true,
+        project: true,
+      },
     });
+
+    if (process.env.RAG_ENABLED === 'true') {
+      try {
+        await RAGIngestionService.ingestDailyReport(report.id);
+      } catch (err) {
+        console.warn('Auto RAG daily report ingestion deferred:', err);
+      }
+    }
+
+    return report;
   }
 
   // MONTHLY REPORTING

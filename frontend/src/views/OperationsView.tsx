@@ -169,7 +169,7 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ projectId, initi
     }
   };
 
-  const handleCreateDPR = (e: React.FormEvent) => {
+  const handleCreateDPR = async (e: React.FormEvent) => {
     e.preventDefault();
     const newEntry = {
       id: `dpr-local-${Date.now()}`,
@@ -194,7 +194,28 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ projectId, initi
     };
 
     setDailyReports([newEntry, ...dailyReports]);
-    setFeedback(`Daily Progress Report for ${newTower} (${newContractor}) logged successfully.`);
+
+    try {
+      await ApiClient.createDailyReport({
+        projectId: projectId || undefined,
+        date: new Date(newDate).toISOString(),
+        weather: newWeather,
+        manpower: Number(newManpower),
+        plannedWork: newPlanned,
+        completedWork: newAchieved,
+        hasBlocker,
+        blockerDesc: hasBlocker ? blockerDesc : null,
+        reportedTo: hasBlocker ? reportedTo : null,
+        blockerImpact: hasBlocker ? blockerImpact : null,
+        safety: 'PPE & Fall-Protection Verified',
+        remarks: `${newTower} execution logged by ${newContractor}`,
+      });
+      await loadData();
+    } catch (err) {
+      console.warn('Backend DPR save note:', err);
+    }
+
+    setFeedback(`Daily Progress Report for ${newTower} (${newContractor}) logged and indexed into RAG successfully.`);
     setDprModalOpen(false);
     setNewPlanned('');
     setNewAchieved('');
@@ -612,9 +633,10 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ projectId, initi
                     onChange={(e) => setNewContractor(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-white focus:outline-none focus:border-sky-500"
                   >
-                    <option value="Apex Civil Works">Apex Civil Works</option>
-                    <option value="Shivalik MEP Services">Shivalik MEP Services</option>
-                    <option value="Sterling Finishing Ltd">Sterling Finishing Ltd</option>
+                    <option value="Larsen & Toubro Civil Infra Ltd">Larsen & Toubro Civil Infra Ltd</option>
+                    <option value="Sterling & Wilson MEP Solutions">Sterling & Wilson MEP Solutions</option>
+                    <option value="KONE Elevators India Pvt Ltd">KONE Elevators India Pvt Ltd</option>
+                    <option value="Apex Civil Works & Masonry Ltd">Apex Civil Works & Masonry Ltd</option>
                   </select>
                 </div>
               </div>

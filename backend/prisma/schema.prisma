@@ -233,6 +233,8 @@ model Document {
   expiryDate       DateTime?
   permissions      String            @default("ALL") // ALL, ADMIN_ONLY, PROJECT_TEAM
   status           String            @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  approvalStatus   String            @default("APPROVED") // APPROVED, DRAFT, UNDER_REVIEW
+  textContent      String?
   ragEnabled       Boolean           @default(false)
   ragStatus        String            @default("NOT_INDEXED") // NOT_INDEXED, QUEUED, PROCESSING, INDEXED, FAILED, OUTDATED
   ragDocumentId    String?
@@ -281,6 +283,7 @@ model DocumentChunk {
   drawingId        String?
   drawing          Drawing?  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
   contractorNoteId String?
+  dailyReportId    String?
   chunkIndex       Int
   content          String
   embedding        String    // JSON stringified float array
@@ -290,6 +293,7 @@ model DocumentChunk {
   @@index([documentId])
   @@index([drawingId])
   @@index([contractorNoteId])
+  @@index([dailyReportId])
 }
 
 model Contractor {
@@ -371,6 +375,12 @@ model DailyReport {
   photos           String?
   nextDayPlan      String?
   remarks          String?
+  hasBlocker       Boolean    @default(false)
+  blockerDesc      String?
+  reportedTo       String?
+  blockerImpact    String?
+  ragStatus        String     @default("INDEXED")
+  ragChunkId       String?
   submittedBy      String
   createdAt        DateTime   @default(now())
 }
@@ -537,6 +547,9 @@ model ComplianceItem {
   status      String   @default("PENDING") // COMPLETED, IN_PROGRESS, PENDING, OVERDUE, NOT_APPLICABLE
   evidence    String?
   remarks     String?
+  checklists  String?  // JSON stringified array of { id, label, checked }
+  progressPercent Float @default(0)
+  docUrl      String?
 }
 
 model Meeting {
