@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import prisma from '../db/prisma.js';
 import { ProcurementService } from '../services/procurementService.js';
 import { ComplianceService } from '../services/complianceService.js';
 import { BOQService } from '../services/boqService.js';
@@ -132,25 +133,59 @@ export class ComplianceController {
 
   static async createItem(req: Request, res: Response): Promise<void> {
     try {
-      const { name, category, description, projectId, buildingId, ownerName, dueDate, frequency, checklists, docUrl } = req.body;
-      if (!name || !projectId || !ownerName || !dueDate) {
-        res.status(400).json({ error: 'Name, projectId, ownerName, and dueDate are required' });
-        return;
+      let { name, category, description, projectId, buildingId, tower, ownerName, dueDate, frequency, checklists, docUrl } = req.body;
+
+      // Auto-resolve project if not passed or empty
+      if (!projectId || projectId.trim() === '') {
+        const defaultPrj = await prisma.project.findFirst();
+        projectId = defaultPrj ? defaultPrj.id : 'default-prj';
       }
+
+      // Auto-resolve building / tower if passed by name or code
+      if (!buildingId && tower) {
+        const b = await prisma.building.findFirst({
+          where: {
+            OR: [
+              { name: { contains: tower } },
+              { code: { contains: tower } },
+            ],
+          },
+        });
+        if (b) buildingId = b.id;
+      }
+
+      // Fallback name based on category and tower
+      if (!name || !name.trim()) {
+        const catLabel = (category || 'STATUTORY').replace(/_/g, ' ');
+        name = `${catLabel} Clearance${tower ? ` - ${tower}` : ''}`;
+      }
+
+      // Fallback owner name
+      if (!ownerName || !ownerName.trim()) {
+        ownerName = req.user?.name || 'Chief Compliance Officer';
+      }
+
+      // Fallback due date
+      let parsedDueDate = dueDate ? new Date(dueDate) : new Date(Date.now() + 30 * 86400000);
+      if (isNaN(parsedDueDate.getTime())) {
+        parsedDueDate = new Date(Date.now() + 30 * 86400000);
+      }
+
       const item = await ComplianceService.createComplianceItem({
         name,
         category: category || 'FIRE_SAFETY',
-        description: description || name,
+        description: description || `Statutory compliance clearance for ${name}`,
         projectId,
-        buildingId,
+        buildingId: buildingId || undefined,
         ownerName,
-        dueDate: new Date(dueDate),
+        dueDate: parsedDueDate,
         frequency: frequency || 'ONE_TIME',
         checklists,
         docUrl,
       });
       res.status(201).json(item);
     } catch (err: any) {
+      console.error('Compliance createItem error:', err);
       res.status(400).json({ error: err.message });
     }
   }

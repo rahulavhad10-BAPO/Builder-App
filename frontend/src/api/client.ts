@@ -364,9 +364,10 @@ export class ApiClient {
 
   // Ask Project
   static askProject(query: string, projectId?: string) {
+    const apiKey = typeof window !== 'undefined' ? localStorage.getItem('BUILDER_GEMINI_API_KEY') || undefined : undefined;
     return this.request<any>('/ask-project', {
       method: 'POST',
-      body: JSON.stringify({ query, projectId }),
+      body: JSON.stringify({ query, projectId, apiKey }),
     });
   }
 

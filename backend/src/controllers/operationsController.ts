@@ -155,10 +155,14 @@ export class OperationsController {
 export class AskProjectController {
   static async query(req: Request, res: Response): Promise<void> {
     try {
-      const { query, projectId } = req.body;
+      const { query, projectId, apiKey } = req.body;
       if (!query || typeof query !== 'string') {
         res.status(400).json({ error: 'Query string is required' });
         return;
+      }
+
+      if (apiKey && typeof apiKey === 'string' && apiKey.trim().length > 10) {
+        process.env.GEMINI_API_KEY = apiKey.trim();
       }
 
       const result = await AskProjectService.handleQuery(query, projectId, req.user?.role);

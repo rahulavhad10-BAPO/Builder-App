@@ -143,11 +143,19 @@ export class ComplianceService {
     return updated;
   }
 
-  static async addChecklistItem(id: string, label: string) {
+  static async addChecklistItem(id: string, label: string, targetDate?: string, remark?: string) {
     const item = await prisma.complianceItem.findUnique({ where: { id } });
     if (!item) throw new Error('Compliance item not found');
 
-    let currentChecklist: Array<{ id: string; label: string; checked: boolean }> = [];
+    let currentChecklist: Array<{
+      id: string;
+      label: string;
+      checked: boolean;
+      targetDate?: string;
+      remark?: string;
+      docUrl?: string;
+      docName?: string;
+    }> = [];
     try {
       currentChecklist = item.checklists ? JSON.parse(item.checklists) : [];
     } catch {
@@ -158,6 +166,10 @@ export class ComplianceService {
       id: `chk-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       label: label.trim(),
       checked: false,
+      targetDate: targetDate || item.dueDate.toISOString().split('T')[0],
+      remark: remark || '',
+      docUrl: '',
+      docName: '',
     };
 
     const updatedList = [...currentChecklist, newItem];

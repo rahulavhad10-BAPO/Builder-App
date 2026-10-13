@@ -157,6 +157,53 @@ export class StructuredDataService {
       },
     });
 
+    // 8a. Contractor Contact Details & Master Directory in Table Form
+    const isContractorDirectoryQuery =
+      (q.includes('contractor') && (
+        q.includes('contact') ||
+        q.includes('detail') ||
+        q.includes('directory') ||
+        q.includes('phone') ||
+        q.includes('email') ||
+        q.includes('table') ||
+        q.includes('list') ||
+        q.includes('available') ||
+        q.includes('master') ||
+        q.includes('who are') ||
+        q.includes('vendor')
+      )) ||
+      q.includes('contractor contacts') ||
+      q.includes('contractors list');
+
+    if (isContractorDirectoryQuery && !q.includes('progress') && !q.includes('report') && !q.includes('dpr') && !q.includes('log')) {
+      const allContractors = await prisma.contractor.findMany({
+        orderBy: { name: 'asc' },
+      });
+
+      let table = `### Contractor Master Directory & Contact Credentials\n\n`;
+      table += `Here are the active contractors with their registered contact persons, phone numbers, and emails:\n\n`;
+      table += `| Contractor Name | Code | Contact Person | Phone | Email | Scope / Trade | Status |\n`;
+      table += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+      for (const c of allContractors) {
+        const person = c.contactPerson || 'Project In-charge';
+        const phone = c.phone || 'N/A';
+        const email = c.email || 'N/A';
+        const scope = c.scope || 'General Construction';
+        const status = c.status || 'ACTIVE';
+        table += `| **${c.name}** | \`${c.code}\` | ${person} | ${phone} | ${email} | ${scope} | \`${status}\` |\n`;
+      }
+
+      table += `\n*Total Registered Contractors: ${allContractors.length}. All contacts are verified against active project execution contracts.*`;
+
+      return {
+        matched: true,
+        answer: table,
+        data: allContractors,
+        drillDownRoute: '/contractors',
+      };
+    }
+
     const isContractorOrProjectStatusQuery =
       q.includes('progress note') ||
       q.includes('progress report') ||

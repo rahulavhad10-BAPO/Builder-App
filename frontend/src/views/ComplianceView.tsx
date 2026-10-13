@@ -5,21 +5,27 @@ import {
   ShieldCheck,
   CheckSquare,
   Calendar,
-  User,
   X,
-  FileCheck2,
-  CheckCircle2,
   PlusCircle,
   UploadCloud,
+  FileText,
+  Building,
+  Layers,
+  Save,
+  Trash2,
 } from 'lucide-react';
 
-interface ChecklistItem {
+export interface ChecklistItem {
   id: string;
   label: string;
   checked: boolean;
+  targetDate?: string;
+  remark?: string;
+  docName?: string;
+  docUrl?: string;
 }
 
-interface ComplianceItemData {
+export interface ComplianceItemData {
   id: string;
   name: string;
   category: string;
@@ -36,7 +42,42 @@ interface ComplianceItemData {
   building?: { name: string };
 }
 
-export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) => {
+// Recommended default checklists per category
+const CATEGORY_DEFAULT_CHECKLISTS: Record<string, string[]> = {
+  FIRE_SAFETY: [
+    'Sprinkler pipeline hydrostatic pressure test certified (12 kg/cm²)',
+    'Central wet riser 150mm NB integrity and internal hydrant landing valves verified',
+    'Emergency fire booster pumps flow rate > 2000 LPM confirmed with diesel standby',
+    'Stairwell positive pressurization fan automated smoke sensor cut-off cleared',
+  ],
+  ENVIRONMENT: [
+    'State Pollution Control Board Consent to Establish (CTE) conditions compliance',
+    'Effluent Treatment Plant (ETP) / Sewage Treatment Plant (STP) civil design verified',
+    'Ambient air quality monitor logs and PM2.5 / PM10 dust barrier certificate submitted',
+  ],
+  QUALITY: [
+    'Third-party structural stability assessment report from authorized institute (IIT/NIT)',
+    'High-grade M35 concrete core crushing tests and slump test records verified',
+    'Structural steel reinforcement Fe 550D mill test certificates filed',
+  ],
+  SAFETY: [
+    'High-speed passenger elevator traction motor safety inspection clearance',
+    'Emergency governor brake drop test and overspeed trip validation certified',
+    'Lift hoistway shaft ventilation and pit buffer clearance endorsement received',
+  ],
+  RERA: [
+    'Quarterly RERA project progress upload with certified architect completion certificate',
+    'Quarterly CA-certified escrow account withdrawal reconciliation statement',
+    'Sanctioned layout plan and encumbrance certificate verified on public portal',
+  ],
+  LABOUR: [
+    'BOCW Labour welfare cess 1% deposit challan verified',
+    'Site labour camp hygienic sanitation, potable water, and creche audit passed',
+    'Workmen compensation insurance policy active and renewed',
+  ],
+};
+
+export const ComplianceView: React.FC<{ projectId?: string }> = ({ projectId }) => {
   const { isAdmin } = useAuth();
   const [items, setItems] = useState<ComplianceItemData[]>([]);
   const [summary, setSummary] = useState<any>(null);
@@ -46,21 +87,27 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
   const [activeModalItem, setActiveModalItem] = useState<ComplianceItemData | null>(null);
   const [modalChecklist, setModalChecklist] = useState<ChecklistItem[]>([]);
   const [newChecklistLabel, setNewChecklistLabel] = useState<string>('');
-  const [uploadedDocName, setUploadedDocName] = useState<string | null>(null);
   const [savingProgress, setSavingProgress] = useState<boolean>(false);
 
   // New Compliance Clearance Creation Modal
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
-  const [newName, setNewName] = useState<string>('');
   const [newCategory, setNewCategory] = useState<string>('FIRE_SAFETY');
-  const [newOwner, setNewOwner] = useState<string>('Deepa Nair');
+  const [selectedBuilding, setSelectedBuilding] = useState<string>('Skyline Solitaire Towers');
+  const [selectedTower, setSelectedTower] = useState<string>('Tower A');
   const [newDueDate, setNewDueDate] = useState<string>(
     new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
   );
-  const [newChecklistText, setNewChecklistText] = useState<string>(
-    'Sprinkler pipeline hydrostatic pressure test certified (12 kg/cm²)\nCentral wet riser 150mm NB integrity verified\nEmergency fire pump booster flow rate > 2000 LPM confirmed\nStairwell positive pressurization fan automated cut-off tested'
+  const [creationChecklists, setCreationChecklists] = useState<string[]>(
+    CATEGORY_DEFAULT_CHECKLISTS['FIRE_SAFETY']
   );
+  const [newCreationItemText, setNewCreationItemText] = useState<string>('');
   const [creating, setCreating] = useState<boolean>(false);
+
+  // When category changes in creation modal, pre-populate recommended checklist
+  const handleCategoryChange = (category: string) => {
+    setNewCategory(category);
+    setCreationChecklists(CATEGORY_DEFAULT_CHECKLISTS[category] || []);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -72,7 +119,7 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
       setItems(list);
       setSummary(sum);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to load compliance data:', e);
     } finally {
       setLoading(false);
     }
@@ -85,7 +132,6 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
   // Open the interactive Checklist & Evidence popup
   const openChecklistModal = (item: ComplianceItemData) => {
     setActiveModalItem(item);
-    setUploadedDocName(item.evidence ? item.evidence.split('/').pop() || 'cert-verified.pdf' : null);
     setNewChecklistLabel('');
 
     let parsedList: ChecklistItem[] = [];
@@ -98,44 +144,74 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
     }
 
     if (parsedList.length === 0) {
-      parsedList = [
-        { id: 'c1', label: 'Technical documentation & authority application submitted', checked: item.status === 'COMPLETED' },
-        { id: 'c2', label: 'Competent engineer on-site physical inspection cleared', checked: item.status === 'COMPLETED' },
-        { id: 'c3', label: 'Final sanction order & verified certificate issued', checked: item.status === 'COMPLETED' },
+      const catDefaults = CATEGORY_DEFAULT_CHECKLISTS[item.category] || [
+        'Technical documentation & authority application submitted',
+        'Competent engineer on-site physical inspection cleared',
+        'Final sanction order & verified certificate issued',
       ];
+      parsedList = catDefaults.map((label, idx) => ({
+        id: `chk-def-${idx + 1}`,
+        label,
+        checked: item.status === 'COMPLETED',
+        targetDate: item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : '',
+        remark: '',
+        docName: '',
+      }));
     }
 
     setModalChecklist(parsedList);
   };
 
+  // Toggle checklist checkbox
   const toggleChecklistItem = (id: string) => {
     setModalChecklist((prev) =>
       prev.map((c) => (c.id === id ? { ...c, checked: !c.checked } : c))
     );
   };
 
-  const handleAddChecklistItemToModal = async (e: React.FormEvent) => {
+  // Update remark for a specific checklist item
+  const updateChecklistRemark = (id: string, remark: string) => {
+    setModalChecklist((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, remark } : c))
+    );
+  };
+
+  // Upload file for a specific checklist item
+  const handleChecklistFileUpload = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setModalChecklist((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                docName: file.name,
+                docUrl: `https://docs.builderops.local/compliance/${file.name}`,
+              }
+            : c
+        )
+      );
+    }
+  };
+
+  // Add a new checklist item to active modal
+  const handleAddChecklistItemToModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChecklistLabel.trim()) return;
 
     const newItem: ChecklistItem = {
-      id: `chk-${Date.now()}`,
+      id: `chk-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       label: newChecklistLabel.trim(),
       checked: false,
+      targetDate: activeModalItem?.dueDate
+        ? new Date(activeModalItem.dueDate).toISOString().split('T')[0]
+        : '',
+      remark: '',
+      docName: '',
     };
 
-    const updated = [...modalChecklist, newItem];
-    setModalChecklist(updated);
+    setModalChecklist((prev) => [...prev, newItem]);
     setNewChecklistLabel('');
-
-    // If active modal item exists, call backend to persist
-    if (activeModalItem) {
-      try {
-        await ApiClient.addComplianceChecklistItem(activeModalItem.id, newItem.label);
-      } catch (err) {
-        console.warn('Deferred adding checklist item to backend:', err);
-      }
-    }
   };
 
   const calculateModalProgress = () => {
@@ -144,6 +220,7 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
     return Math.round((checkedCount / modalChecklist.length) * 100);
   };
 
+  // Save checklist status, remarks, and documents to backend
   const handleSaveModalProgress = async () => {
     if (!activeModalItem) return;
     setSavingProgress(true);
@@ -156,10 +233,9 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
         status: newStatus,
         checklists: modalChecklist,
         progressPercent: progressPct,
-        remarks: `Checklist verified (${progressPct}% progress). ${
-          uploadedDocName ? `Uploaded evidence: ${uploadedDocName}` : ''
-        }`,
-        evidence: uploadedDocName ? `https://docs.builderops.local/${uploadedDocName}` : undefined,
+        remarks: `Updated ${modalChecklist.filter((c) => c.checked).length} of ${
+          modalChecklist.length
+        } items verified.`,
       });
 
       await loadData();
@@ -171,41 +247,46 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadedDocName(file.name);
-    }
-  };
-
+  // Create new compliance item with exact requested fields
   const handleCreateCompliance = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim()) return;
-
     setCreating(true);
+
     try {
-      const checklistArray = newChecklistText
-        .split('\n')
-        .filter((l) => l.trim())
-        .map((label, idx) => ({
-          id: `c-init-${idx + 1}`,
-          label: label.trim(),
-          checked: false,
-        }));
+      const categoryTitles: Record<string, string> = {
+        FIRE_SAFETY: 'Fire Safety CFO NOC Clearance',
+        ENVIRONMENT: 'SPCB Environmental Clearance & CTE',
+        QUALITY: 'IIT Structural Stability Certification',
+        SAFETY: 'Elevator & Lift Machinery License',
+        RERA: 'RERA Compliance & Project Disclosures',
+        LABOUR: 'BOCW Labour Welfare Cess Clearance',
+      };
+
+      const title = `${categoryTitles[newCategory] || 'Statutory Clearance'} - ${selectedTower}`;
+
+      const formattedChecklists: ChecklistItem[] = creationChecklists.map((label, idx) => ({
+        id: `chk-init-${idx + 1}`,
+        label: label.trim(),
+        checked: false,
+        targetDate: newDueDate,
+        remark: '',
+        docName: '',
+      }));
 
       await ApiClient.createComplianceItem({
-        name: newName,
         category: newCategory,
-        description: `Statutory compliance verification for ${newName}`,
-        projectId,
-        ownerName: newOwner,
+        name: title,
+        building: selectedBuilding,
+        tower: selectedTower,
         dueDate: newDueDate,
-        checklists: checklistArray,
+        checklists: formattedChecklists,
       });
 
       await loadData();
       setCreateModalOpen(false);
-      setNewName('');
+      // Reset creation form
+      setNewCreationItemText('');
+      setCreationChecklists(CATEGORY_DEFAULT_CHECKLISTS['FIRE_SAFETY']);
     } catch (err: any) {
       alert(err.message || 'Failed to create compliance clearance');
     } finally {
@@ -215,31 +296,33 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
 
   return (
     <div className="space-y-4">
-      {/* 1. Header Banner & Dynamic Scorecard */}
+      {/* 1. Header Banner & Scorecard */}
       <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+          <div className="p-2.5 rounded-lg bg-emerald-500/20 text-emerald-400">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base font-bold text-white">Statutory & Regulatory Compliance Command</h2>
             <p className="text-xs text-slate-400">
-              Clearance registry with compliance owners, interactive checklists, dynamic item additions & evidence uploads
+              Clearance registry with checklist tracking, remarks per milestone, document uploads & target closure dates
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           {summary && (
-            <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-xl border border-slate-800">
+            <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
               <div className="text-right">
                 <div className="text-[10px] text-slate-400 uppercase font-bold">Overall Score</div>
                 <div className="text-base font-black text-emerald-400">
                   {summary.compliancePercentage}%
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-full border-4 border-emerald-500/30 border-t-emerald-400 flex items-center justify-center font-bold text-[11px] text-white">
-                {summary.compliancePercentage}%
+              <div className="h-8 w-px bg-slate-800"></div>
+              <div className="text-right font-mono text-xs">
+                <div className="text-emerald-400 font-bold">{summary.completed} Cleared</div>
+                <div className="text-amber-400">{summary.inProgress} In-Progress</div>
               </div>
             </div>
           )}
@@ -247,106 +330,96 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
           {isAdmin && (
             <button
               onClick={() => setCreateModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer shrink-0"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>New Clearance</span>
+              <span>Create Compliance</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* 2. Main Compliance Registry Grid */}
+      {/* 2. Clearance Cards Grid */}
       {loading ? (
-        <div className="p-12 text-center text-slate-500 text-xs">Loading statutory compliance records...</div>
+        <div className="p-12 text-center text-slate-500 text-xs">Loading statutory clearances...</div>
+      ) : items.length === 0 ? (
+        <div className="p-12 text-center text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">
+          No compliance clearances found. Click "Create Compliance" to add a new clearance.
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((item) => {
-            let checklistsParsed: ChecklistItem[] = [];
+            let checklistCount = 0;
+            let checkedCount = 0;
             try {
-              if (item.checklists) checklistsParsed = JSON.parse(item.checklists);
+              if (item.checklists) {
+                const list: ChecklistItem[] = JSON.parse(item.checklists);
+                checklistCount = list.length;
+                checkedCount = list.filter((c) => c.checked).length;
+              }
             } catch {
-              checklistsParsed = [];
+              checklistCount = 3;
             }
 
-            const totalChecks = checklistsParsed.length || 3;
-            const completedChecks = checklistsParsed.filter((c) => c.checked).length;
-            const progress =
-              item.progressPercent !== undefined
-                ? Math.round(item.progressPercent)
-                : totalChecks > 0
-                ? Math.round((completedChecks / totalChecks) * 100)
-                : item.status === 'COMPLETED'
-                ? 100
-                : 0;
-
-            const isCompleted = item.status === 'COMPLETED' || progress === 100;
+            const pct = item.progressPercent !== undefined ? Math.round(item.progressPercent) : 0;
 
             return (
               <div
                 key={item.id}
                 className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-sm flex flex-col justify-between gap-3 transition-all"
               >
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-950 text-sky-400 border border-slate-800">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-950 text-sky-400 border border-slate-800">
                       {item.category.replace(/_/g, ' ')}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 ${
-                        isCompleted
-                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                          : progress > 0
-                          ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
-                          : 'bg-slate-800 text-slate-400'
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        item.status === 'COMPLETED'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : item.status === 'IN_PROGRESS'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                       }`}
                     >
-                      {isCompleted ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : null}
-                      <span>{isCompleted ? 'COMPLIANT' : progress > 0 ? 'IN PROGRESS' : 'PENDING'}</span>
+                      {item.status.replace(/_/g, ' ')}
                     </span>
                   </div>
 
                   <h3 className="font-bold text-white text-xs leading-snug">{item.name}</h3>
 
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <Calendar className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span>Target Closure:</span>
+                    <span className="font-mono text-white font-semibold">
+                      {new Date(item.dueDate).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+
                   {/* Progress Bar */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-[10px] text-slate-400">
                       <span>Checklist Completion</span>
-                      <span className="font-mono font-bold text-white">{progress}%</span>
+                      <span className="text-emerald-400 font-mono font-bold">
+                        {checkedCount}/{checklistCount} ({pct}%)
+                      </span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          progress === 100 ? 'bg-emerald-500' : progress > 50 ? 'bg-amber-400' : 'bg-sky-500'
-                        }`}
-                        style={{ width: `${progress}%` }}
+                        className="h-full bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full transition-all duration-300"
+                        style={{ width: `${pct}%` }}
                       ></div>
                     </div>
                   </div>
-
-                  {/* Meta details */}
-                  <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400 pt-1">
-                    <div className="flex items-center gap-1 truncate">
-                      <User className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span className="truncate">{item.ownerName}</span>
-                    </div>
-                    <div className="flex items-center gap-1 justify-end font-mono">
-                      <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span>{new Date(item.dueDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                  </div>
-
-                  {item.remarks && (
-                    <p className="text-[10px] text-slate-500 line-clamp-2 italic bg-slate-950/40 p-1.5 rounded border border-slate-800/60">
-                      "{item.remarks}"
-                    </p>
-                  )}
                 </div>
 
-                {/* Card Action */}
-                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-500">
-                    {totalChecks} Checklist Criteria
+                <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {checklistCount} Milestone Items
                   </span>
                   <button
                     onClick={() => openChecklistModal(item)}
@@ -362,10 +435,10 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
         </div>
       )}
 
-      {/* 3. Interactive Checklist & Upload Modal */}
+      {/* 3. Interactive Checklist Modal with Remarks & Per-Item Upload */}
       {activeModalItem && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col my-8 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col my-6 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -375,9 +448,13 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
                 <div>
                   <h3 className="font-bold text-white text-sm">{activeModalItem.name}</h3>
                   <p className="text-[11px] text-slate-400">
-                    Owner: <span className="text-white font-semibold">{activeModalItem.ownerName}</span> &bull; Due:{' '}
-                    <span className="text-sky-400 font-mono">
-                      {new Date(activeModalItem.dueDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                    Category: <span className="text-white font-semibold">{activeModalItem.category}</span> &bull; Target Closure:{' '}
+                    <span className="text-sky-400 font-mono font-bold">
+                      {new Date(activeModalItem.dueDate).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
                     </span>
                   </p>
                 </div>
@@ -391,12 +468,13 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
             </div>
 
             <div className="p-5 space-y-4 text-xs">
-              {/* Progress Bar in Modal */}
+              {/* Overall Progress Bar */}
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-xs font-semibold">
-                  <span className="text-slate-300">Statutory Clearance Progress</span>
+                  <span className="text-slate-300">Target Closure Progress</span>
                   <span className="text-emerald-400 font-mono font-bold">
-                    {calculateModalProgress()}% Completed
+                    {calculateModalProgress()}% Completed ({modalChecklist.filter((c) => c.checked).length} of{' '}
+                    {modalChecklist.length} Checked)
                   </span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -407,92 +485,137 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
                 </div>
               </div>
 
-              {/* Checklist Items List */}
+              {/* Checklist Table with Status, Item, Closure Date, Remark, and Upload Button */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <span>Mandatory Inspection Checklist:</span>
-                  <span className="text-[10px] text-slate-500">
-                    {modalChecklist.filter((c) => c.checked).length} of {modalChecklist.length} Checked
-                  </span>
+                  <span>Compliance Checklist Milestones & Documentation:</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Check off items till target closure</span>
                 </div>
 
-                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                  {modalChecklist.map((c) => (
-                    <label
-                      key={c.id}
-                      className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                        c.checked
-                          ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
-                          : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-850'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={c.checked}
-                        onChange={() => toggleChecklistItem(c.id)}
-                        className="mt-0.5 rounded border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer"
-                      />
-                      <span className="leading-relaxed select-none">{c.label}</span>
-                    </label>
-                  ))}
+                <div className="border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-slate-950 text-slate-400 font-bold border-b border-slate-800 sticky top-0 z-10">
+                        <tr>
+                          <th className="p-2.5 w-12 text-center">Status</th>
+                          <th className="p-2.5">Checklist Item</th>
+                          <th className="p-2.5 w-44">Remark</th>
+                          <th className="p-2.5 w-36 text-center">Upload Document</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80 bg-slate-900/60">
+                        {modalChecklist.map((c) => (
+                          <tr
+                            key={c.id}
+                            className={`transition-colors ${
+                              c.checked ? 'bg-emerald-950/20' : 'hover:bg-slate-800/40'
+                            }`}
+                          >
+                            {/* Checkbox */}
+                            <td className="p-2.5 text-center align-middle">
+                              <input
+                                type="checkbox"
+                                checked={c.checked}
+                                onChange={() => toggleChecklistItem(c.id)}
+                                className="w-4 h-4 rounded border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer"
+                              />
+                            </td>
+
+                            {/* Label */}
+                            <td className="p-2.5 align-middle">
+                              <div
+                                className={`font-medium ${
+                                  c.checked ? 'text-emerald-300 line-through' : 'text-slate-200'
+                                }`}
+                              >
+                                {c.label}
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                Target Closure:{' '}
+                                {c.targetDate ||
+                                  (activeModalItem?.dueDate
+                                    ? new Date(activeModalItem.dueDate).toLocaleDateString([], {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                      })
+                                    : '30 Days')}
+                              </div>
+                            </td>
+
+                            {/* Remark Input */}
+                            <td className="p-2.5 align-middle">
+                              <input
+                                type="text"
+                                value={c.remark || ''}
+                                onChange={(e) => updateChecklistRemark(c.id, e.target.value)}
+                                placeholder="Add remark..."
+                                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2 py-1 text-slate-200 placeholder-slate-600 text-xs focus:outline-none focus:border-emerald-500"
+                              />
+                            </td>
+
+                            {/* Upload Button */}
+                            <td className="p-2.5 text-center align-middle">
+                              <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white cursor-pointer transition-colors text-[11px] font-semibold">
+                                <UploadCloud className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                <span>{c.docName ? 'Replace' : 'Upload'}</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  onChange={(e) => handleChecklistFileUpload(c.id, e)}
+                                />
+                              </label>
+                              {c.docName && (
+                                <div className="text-[10px] text-emerald-400 font-mono truncate max-w-[120px] mx-auto mt-1 flex items-center justify-center gap-1">
+                                  <FileText className="w-3 h-3 shrink-0" />
+                                  <span title={c.docName}>{c.docName}</span>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
-              {/* Add New Checklist Item Input */}
-              <form onSubmit={handleAddChecklistItemToModal} className="flex items-center gap-2">
+              {/* Add New Checklist Item Form */}
+              <form onSubmit={handleAddChecklistItemToModal} className="flex items-center gap-2 pt-1">
                 <input
                   type="text"
                   value={newChecklistLabel}
                   onChange={(e) => setNewChecklistLabel(e.target.value)}
-                  placeholder="Add new checklist requirement on the fly..."
+                  placeholder="Add new checklist requirement to this clearance..."
                   className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 text-xs"
                 />
                 <button
                   type="submit"
                   disabled={!newChecklistLabel.trim()}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 font-semibold flex items-center gap-1 cursor-pointer shrink-0"
+                  className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white font-semibold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Add Checklist Item</span>
+                  <span>Add Checklist</span>
                 </button>
               </form>
 
-              {/* Evidence Attachment */}
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <UploadCloud className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Upload Document / Evidence against Clearance:</span>
-                </div>
-                <input
-                  type="file"
-                  onChange={handleFileUpload}
-                  className="w-full text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-sky-400 hover:file:bg-slate-700 cursor-pointer"
-                />
-                {uploadedDocName && (
-                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-mono">
-                    <FileCheck2 className="w-3.5 h-3.5" />
-                    <span>Attached Evidence: {uploadedDocName}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Actions */}
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
+              {/* Modal Footer Actions */}
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setActiveModalItem(null)}
                   className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="button"
-                  disabled={savingProgress}
                   onClick={handleSaveModalProgress}
-                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+                  disabled={savingProgress}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{savingProgress ? 'Saving...' : 'Save & Update Progress'}</span>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{savingProgress ? 'Saving...' : 'Save Checklist Progress'}</span>
                 </button>
               </div>
             </div>
@@ -500,67 +623,91 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
         </div>
       )}
 
-      {/* 4. New Compliance Clearance Creation Modal (Admin Only) */}
+      {/* 4. Create Compliance Clearance Modal (Only the Exact Requested Fields) */}
       {createModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col my-8 animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
             <div className="p-4 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
-                <h3 className="font-bold text-white text-sm">Add New Statutory Clearance</h3>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Create New Statutory Compliance</h3>
+                  <p className="text-[11px] text-slate-400">Configure category, building, tower, closure date & checklists</p>
+                </div>
               </div>
-              <button onClick={() => setCreateModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer">
+              <button
+                onClick={() => setCreateModalOpen(false)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleCreateCompliance} className="p-5 space-y-3.5 text-xs">
+              {/* Field 1: Compliance Category */}
               <div>
-                <label className="block text-slate-400 font-semibold mb-1">Clearance / Document Title *</label>
-                <input
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Fire Department CFO Final NOC Approval"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-                />
+                <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Compliance Category *</span>
+                </label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer font-medium"
+                >
+                  <option value="FIRE_SAFETY">Fire Safety NOC (CFO Approval)</option>
+                  <option value="ENVIRONMENT">Environmental Clearance (SPCB / CTE)</option>
+                  <option value="QUALITY">Structural Stability Certification (IIT/NIT)</option>
+                  <option value="SAFETY">Lift & Machinery License</option>
+                  <option value="RERA">RERA Project Disclosures & Escrow</option>
+                  <option value="LABOUR">Labour Welfare Cess & BOCW</option>
+                </select>
               </div>
 
+              {/* Field 2 & 3: Select Building & Select Tower */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 font-semibold mb-1">Compliance Category</label>
+                  <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Select Building *</span>
+                  </label>
                   <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    value={selectedBuilding}
+                    onChange={(e) => setSelectedBuilding(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
-                    <option value="FIRE_SAFETY">Fire Safety NOC</option>
-                    <option value="ENVIRONMENT">Environmental Clearance</option>
-                    <option value="QUALITY">Structural Stability</option>
-                    <option value="SAFETY">Lift & Machinery License</option>
-                    <option value="RERA">RERA Disclosures</option>
-                    <option value="LABOUR">Labour Cess & Welfare</option>
+                    <option value="Skyline Solitaire Towers">Skyline Solitaire Towers</option>
+                    <option value="The Grand Pinnacle Heights">The Grand Pinnacle Heights</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-semibold mb-1">Responsible Owner *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newOwner}
-                    onChange={(e) => setNewOwner(e.target.value)}
-                    placeholder="e.g. Deepa Nair"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-                  />
+                  <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Select Tower *</span>
+                  </label>
+                  <select
+                    value={selectedTower}
+                    onChange={(e) => setSelectedTower(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer font-medium"
+                  >
+                    <option value="Tower A">Tower A (Sapphire)</option>
+                    <option value="Tower B">Tower B (Emerald)</option>
+                    <option value="Tower C">Tower C (Ruby)</option>
+                    <option value="All Towers">All Towers (Site-wide)</option>
+                  </select>
                 </div>
               </div>
 
+              {/* Field 4: Select Target Closure Date */}
               <div>
-                <label className="block text-slate-400 font-semibold mb-1">Compliance Due Date *</label>
+                <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Select Target Closure Date *</span>
+                </label>
                 <input
                   type="date"
                   required
@@ -570,21 +717,66 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">
-                  Initial Checklists (Enter one checklist item per line) *
+              {/* Field 5: Add Checklist Provision */}
+              <div className="space-y-1.5">
+                <label className="block text-slate-300 font-semibold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Checklist Items Provision ({creationChecklists.length} Items) *</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">Pre-filled for selected category</span>
                 </label>
-                <textarea
-                  rows={4}
-                  required
-                  value={newChecklistText}
-                  onChange={(e) => setNewChecklistText(e.target.value)}
-                  placeholder="Checklist Item 1: ...&#10;Checklist Item 2: ..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500 leading-relaxed"
-                />
+
+                {/* Checklist items list */}
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {creationChecklists.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px]"
+                    >
+                      <span className="text-slate-300 leading-snug flex-1">{item}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCreationChecklists(creationChecklists.filter((_, i) => i !== idx))
+                        }
+                        className="text-slate-500 hover:text-rose-400 p-0.5 transition-colors cursor-pointer"
+                        title="Remove requirement"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Input to add more checklist items */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={newCreationItemText}
+                    onChange={(e) => setNewCreationItemText(e.target.value)}
+                    placeholder="Add custom checklist requirement..."
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-xs"
+                  />
+                  <button
+                    type="button"
+                    disabled={!newCreationItemText.trim()}
+                    onClick={() => {
+                      if (newCreationItemText.trim()) {
+                        setCreationChecklists([...creationChecklists, newCreationItemText.trim()]);
+                        setNewCreationItemText('');
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 text-white font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <PlusCircle className="w-3 h-3 text-emerald-400" />
+                    <span>Add Item</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
+              {/* Submit Buttons */}
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
@@ -594,11 +786,11 @@ export const ComplianceView: React.FC<{ projectId: string }> = ({ projectId }) =
                 </button>
                 <button
                   type="submit"
-                  disabled={creating}
-                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+                  disabled={creating || creationChecklists.length === 0}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  <span>{creating ? 'Creating...' : 'Create Clearance'}</span>
+                  <span>{creating ? 'Creating Clearance...' : 'Create Clearance'}</span>
                 </button>
               </div>
             </form>
