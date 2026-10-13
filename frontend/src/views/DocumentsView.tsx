@@ -29,6 +29,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [uploadModalOpen, setUploadModalOpen] = useState<boolean>(false);
   const [selectedDocHistory, setSelectedDocHistory] = useState<DocumentItem | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const loadDocuments = async () => {
     setLoading(true);
@@ -52,6 +53,14 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
 
   return (
     <div className="space-y-4">
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between">
+          <span>{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="text-emerald-400 hover:text-white cursor-pointer">✕</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -72,15 +81,17 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
               try {
                 await ApiClient.reindexVectors();
                 loadDocuments();
+                setToastMessage('Search index synchronized successfully.');
+                setTimeout(() => setToastMessage(null), 3500);
               } catch (e) {
                 console.error(e);
               }
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 text-xs font-semibold border border-slate-700 shadow-sm transition-all cursor-pointer"
-            title="Re-chunk and update semantic embeddings across all project records"
+            title="Update search index across all project records"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sync RAG Vectors</span>
+            <span>Sync Search Index</span>
           </button>
 
           {/* Upload strictly restricted to Admin */}
@@ -133,7 +144,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
                 <th className="p-3">Category</th>
                 <th className="p-3">Current Version</th>
                 <th className="p-3">Access Tier</th>
-                <th className="p-3">Vector RAG Status</th>
+                <th className="p-3">Processing Status</th>
                 <th className="p-3">Uploaded By</th>
                 <th className="p-3">Updated Date</th>
                 <th className="p-3 text-right">Actions</th>
@@ -191,7 +202,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
                       {doc.ragStatus === 'INDEXED' ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1 w-max">
                           <Sparkles className="w-3 h-3 text-emerald-400" />
-                          <span>INDEXED (Vectorized)</span>
+                          <span>PROCESSED (Search Ready)</span>
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60">
@@ -322,7 +333,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ projectId }) => {
         <UploadDocumentModal
           projectId={projectId || 'default'}
           onClose={() => setUploadModalOpen(false)}
-          onSuccess={loadDocuments}
+          onSuccess={() => {
+            loadDocuments();
+            setToastMessage('Document uploaded successfully.');
+            setTimeout(() => setToastMessage(null), 3500);
+          }}
         />
       )}
     </div>

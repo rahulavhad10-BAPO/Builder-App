@@ -250,7 +250,7 @@ export const AskProjectView: React.FC<{
         id: `turn-${Date.now()}`,
         query: q,
         response: {
-          answer: `Error retrieving response: ${err.message || 'Unable to connect to RAG service.'}`,
+          answer: `Error retrieving response: ${err.message || 'Unable to connect to service.'}`,
         },
         timestamp: new Date(),
       };
@@ -354,7 +354,7 @@ export const AskProjectView: React.FC<{
           <div className="flex items-center gap-2">
             <div className="px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/80 text-[10px] font-mono text-emerald-300 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>RAG Engine Online</span>
+              <span>Assistant Online</span>
             </div>
           </div>
         </div>
@@ -422,7 +422,7 @@ export const AskProjectView: React.FC<{
                       <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
                         <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
                           <FileText className="w-3 h-3 text-sky-400" />
-                          <span>Grounded Source References ({turn.response.sources.length}):</span>
+                          <span>Referenced Project Records ({turn.response.sources.length}):</span>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {turn.response.sources.map((s, sIdx) => (
@@ -523,7 +523,7 @@ export const AskProjectView: React.FC<{
             </button>
           </form>
           <div className="text-center text-[10px] text-slate-500 mt-1.5">
-            Gemini Assistant answers with live project data and vector-indexed records.
+            Gemini Assistant answers with live project records and site operations.
           </div>
         </div>
       </div>
@@ -543,7 +543,7 @@ export const AskProjectView: React.FC<{
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              To enable Google Gemini 1.5/2.0 generative synthesis, enter your API key below. If left blank, the application uses the built-in local vector retrieval engine.
+              To enable Google Gemini 1.5/2.0 generative synthesis, enter your API key below. If left blank, the application uses the built-in natural intelligence engine.
             </p>
 
             <div>

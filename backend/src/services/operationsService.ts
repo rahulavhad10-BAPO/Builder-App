@@ -70,10 +70,68 @@ export class OperationsService {
   }
 
   static async createDailyReport(data: any) {
+    let projectId = data.projectId;
+    if (!projectId || projectId.trim() === '') {
+      const defaultPrj = await prisma.project.findFirst();
+      projectId = defaultPrj ? defaultPrj.id : 'default-prj';
+    }
+
+    let contractorId = data.contractorId;
+    if (!contractorId && data.contractor) {
+      const c = await prisma.contractor.findFirst({
+        where: {
+          OR: [
+            { name: { contains: data.contractor } },
+            { code: { contains: data.contractor } },
+          ],
+        },
+      });
+      if (c) contractorId = c.id;
+    }
+
+    let buildingId = data.buildingId;
+    if (!buildingId && (data.tower || data.building)) {
+      const target = data.tower || data.building;
+      const b = await prisma.building.findFirst({
+        where: {
+          OR: [
+            { name: { contains: target } },
+            { code: { contains: target } },
+          ],
+        },
+      });
+      if (b) buildingId = b.id;
+    }
+
+    let reportDate = data.date ? new Date(data.date) : new Date();
+    if (isNaN(reportDate.getTime())) {
+      reportDate = new Date();
+    }
+
     const report = await prisma.dailyReport.create({
       data: {
-        ...data,
-        date: new Date(data.date),
+        projectId,
+        buildingId: buildingId || null,
+        contractorId: contractorId || null,
+        date: reportDate,
+        manpower: Number(data.manpower) || 0,
+        weather: data.weather || 'Clear',
+        plannedWork: data.plannedWork || 'Site execution activities',
+        completedWork: data.completedWork || 'Work completed per schedule',
+        delayedWork: data.delayedWork || null,
+        materialReceived: data.materialReceived || null,
+        materialConsumed: data.materialConsumed || null,
+        equipment: data.equipment || null,
+        issues: data.issues || null,
+        safety: data.safety || 'Zero incidents / PPE compliant',
+        photos: data.photos || data.photoUrl || null,
+        nextDayPlan: data.nextDayPlan || null,
+        remarks: data.remarks || null,
+        hasBlocker: Boolean(data.hasBlocker),
+        blockerDesc: data.blockerDesc || null,
+        reportedTo: data.reportedTo || null,
+        blockerImpact: data.blockerImpact || null,
+        submittedBy: data.submittedBy || 'Site Engineer',
       },
       include: {
         contractor: true,

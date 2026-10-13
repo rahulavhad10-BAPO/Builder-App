@@ -90,6 +90,7 @@ export const ComplianceSection: React.FC<{
   const [newChecklistLabel, setNewChecklistLabel] = useState<string>('');
   const [savingProgress, setSavingProgress] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
 
   // Create Modal
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
@@ -232,6 +233,8 @@ export const ComplianceSection: React.FC<{
 
       await loadData();
       setSaveSuccess(true);
+      setSuccessFeedback('Checklist progress saved successfully.');
+      setTimeout(() => setSuccessFeedback(null), 3500);
       setTimeout(() => {
         setActiveModalItem(null);
         setSaveSuccess(false);
@@ -293,6 +296,8 @@ export const ComplianceSection: React.FC<{
       setCreateModalOpen(false);
       setNewCreationItemText('');
       setCreationChecklists(CATEGORY_DEFAULT_CHECKLISTS['FIRE_SAFETY']);
+      setSuccessFeedback('Compliance clearance created successfully.');
+      setTimeout(() => setSuccessFeedback(null), 3500);
     } catch (err: any) {
       alert(err.message || 'Failed to create compliance clearance');
     } finally {
@@ -302,6 +307,14 @@ export const ComplianceSection: React.FC<{
 
   return (
     <div className="space-y-4">
+      {/* Success Notification Banner */}
+      {successFeedback && (
+        <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between">
+          <span>{successFeedback}</span>
+          <button onClick={() => setSuccessFeedback(null)} className="text-emerald-400 hover:text-white cursor-pointer">✕</button>
+        </div>
+      )}
+
       {/* Header Bar */}
       <div className="flex items-center justify-between pb-1">
         <div className="flex items-center gap-2">

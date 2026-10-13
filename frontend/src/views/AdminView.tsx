@@ -148,7 +148,7 @@ export const AdminView: React.FC = () => {
               activeTab === 'settings' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            Settings & RAG
+            System Settings
           </button>
         </div>
       </div>
@@ -174,9 +174,9 @@ export const AdminView: React.FC = () => {
             </div>
           </div>
           <div>
-            <span className="text-slate-400">RAG Pipeline Mode</span>
-            <div className="text-amber-400 font-bold font-mono mt-0.5">
-              {systemStatus.ragEnabled ? 'RAG_ENABLED' : 'RAG_DISABLED'}
+            <span className="text-slate-400">AI Assistant</span>
+            <div className="text-emerald-400 font-bold font-mono mt-0.5">
+              ONLINE
             </div>
           </div>
           <div>

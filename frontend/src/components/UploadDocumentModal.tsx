@@ -70,7 +70,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             <div>
               <h2 className="text-sm font-bold text-white">Upload Project Document</h2>
               <p className="text-[11px] text-slate-400">
-                Metadata tagging & automated vector RAG ingestion into semantic database
+                Metadata tagging & intelligent document processing for search
               </p>
             </div>
           </div>
@@ -162,20 +162,20 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             </div>
           </div>
 
-          {/* Document Content / Clauses for Instant RAG Vector Storage */}
+          {/* Document Content / Key Clauses for Instant Search */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-slate-400 font-semibold flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Document Text / Clauses for Vector RAG (Optional / Paste Text)</span>
+                <span>Document Text / Key Clauses (Optional / Paste Text)</span>
               </label>
-              <span className="text-[10px] text-emerald-400 font-mono">Dense Embeddings</span>
+              <span className="text-[10px] text-emerald-400 font-mono">Smart Search</span>
             </div>
             <textarea
               rows={3}
               value={textContent}
               onChange={(e) => setTextContent(e.target.value)}
-              placeholder="Paste key clauses, statutory conditions, specifications, or summary text here. This content is chunked and stored in the vector database so users can query it in Ask Project..."
+              placeholder="Paste key clauses, conditions, specifications, or summary text here. This enables the project assistant to answer questions about this document in Ask Project..."
               className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-sans text-xs"
             />
           </div>

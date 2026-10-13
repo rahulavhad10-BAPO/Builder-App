@@ -14,8 +14,8 @@ export class AskProjectService {
         drillDownRoute: structuredResult.drillDownRoute,
         sources: [
           {
-            type: 'RELATIONAL_DATABASE',
-            table: 'Live PostgreSQL / SQLite Entities',
+            type: 'OPERATIONAL_RECORDS',
+            documentName: 'Live Operational Project Records',
             timestamp: new Date(),
           },
         ],

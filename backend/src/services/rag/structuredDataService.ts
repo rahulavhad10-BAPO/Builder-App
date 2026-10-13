@@ -320,11 +320,14 @@ export class StructuredDataService {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
-      // If user specifically asked about today, check only today's submissions
+      // If user specifically asked about today, check today's submissions
       if (isToday) {
         const todayReports = await prisma.dailyReport.findMany({
           where: {
-            date: { gte: todayStart },
+            OR: [
+              { date: { gte: todayStart } },
+              { createdAt: { gte: todayStart } },
+            ],
           },
           include: { contractor: true, building: true, project: true },
           orderBy: { date: 'desc' },
@@ -339,7 +342,7 @@ export class StructuredDataService {
         if (todayReports.length === 0) {
           return {
             matched: true,
-            answer: `No daily progress report has been submitted for today (${todayStr}) yet.\n\nSite contractors can submit today's DPR in the Site Operations module, and it will immediately be indexed for queries here.`,
+            answer: `No daily progress report has been submitted for today yet.\n\nSite supervisors or contractors can add today's progress report in the Site Operations module.`,
             drillDownRoute: '/operations?tab=daily',
           };
         }
@@ -373,7 +376,7 @@ export class StructuredDataService {
       if (recentReports.length === 0) {
         return {
           matched: true,
-          answer: `Currently, no Daily Progress Reports (DPR) are logged in the system.\n\nYou can submit a fresh Daily Report under the **Site Operations** module, and the RAG engine will instantly retrieve it.`,
+          answer: `No daily progress reports have been recorded yet.\n\nYou can submit a report in the **Site Operations** module.`,
           drillDownRoute: '/operations?tab=daily',
         };
       }

@@ -63,66 +63,24 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ projectId, initi
         ApiClient.getMeetings(projectId || undefined),
       ]);
 
-      // Enrich daily reports with tower, contractor and blocker details if missing
-      const enrichedDaily = (dRes.length > 0 ? dRes : [
-        {
-          id: 'dpr-1',
-          date: '2026-03-28T00:00:00.000Z',
-          tower: 'Tower A',
-          contractor: 'Apex Civil Works',
-          weather: 'Clear 31°C',
-          manpower: 54,
-          plannedWork: 'Complete reinforcement tying for 12th floor slab casting.',
-          completedWork: '100% rebar placed and verified by structural consultant. Ready for concrete pour.',
-          hasBlocker: false,
-          blocker: null,
-          photoUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=500',
-          submittedBy: 'Ramesh Patil (Site Engg)',
-          safety: 'Zero Incidents / PPE Compliant',
-        },
-        {
-          id: 'dpr-2',
-          date: '2026-03-27T00:00:00.000Z',
-          tower: 'Tower B',
-          contractor: 'Shivalik MEP Services',
-          weather: 'Overcast 28°C',
-          manpower: 28,
-          plannedWork: 'Run vertical electrical cable conduits from 8th to 14th floor shaft.',
-          completedWork: 'Conduits pulled up to 11th floor shaft; work stopped at 3 PM.',
-          hasBlocker: true,
-          blocker: {
-            description: 'Material hoist breakdown prevented transporting heavy copper conduit bundles.',
-            reportedTo: 'Vikram Joshi (Project Manager)',
-            impact: 'Delayed electrical shaft commissioning by approx 1.5 days.',
-          },
-          photoUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500',
-          submittedBy: 'Anil Kumble (MEP Lead)',
-          safety: 'Toolbox Talk Conducted',
-        },
-        {
-          id: 'dpr-3',
-          date: '2026-03-26T00:00:00.000Z',
-          tower: 'Tower C',
-          contractor: 'Sterling Finishing Ltd',
-          weather: 'Sunny 33°C',
-          manpower: 36,
-          plannedWork: 'AAC blockwork masonry on 4th floor external perimeter.',
-          completedWork: 'Completed 850 sq.ft masonry wall with stiffener columns.',
-          hasBlocker: false,
-          photoUrl: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=500',
-          submittedBy: 'Karthik Rao (Site Supervisor)',
-          safety: 'Scaffolding Safety Certified',
-        },
-      ]).map((dr: any, idx: number) => ({
+      // Map real daily reports from backend
+      const enrichedDaily = (dRes || []).map((dr: any) => ({
         ...dr,
-        tower: dr.tower || (idx % 2 === 0 ? 'Tower A' : 'Tower B'),
-        contractor: dr.contractor || (idx % 2 === 0 ? 'Apex Civil Works' : 'Shivalik MEP Services'),
+        tower: dr.building?.name || dr.tower || 'Tower A',
+        contractor: dr.contractor?.name || dr.contractor || 'Contractor',
+        blocker: dr.hasBlocker
+          ? {
+              description: dr.blockerDesc,
+              reportedTo: dr.reportedTo,
+              impact: dr.blockerImpact,
+            }
+          : null,
       }));
 
       setDailyReports(enrichedDaily);
-      setIssues(iRes);
-      setMonthlyReports(mRes);
-      setMeetings(meetRes);
+      setIssues(iRes || []);
+      setMonthlyReports(mRes || []);
+      setMeetings(meetRes || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -171,36 +129,14 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ projectId, initi
 
   const handleCreateDPR = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newEntry = {
-      id: `dpr-local-${Date.now()}`,
-      date: new Date(newDate).toISOString(),
-      tower: newTower,
-      contractor: newContractor,
-      weather: newWeather,
-      manpower: Number(newManpower),
-      plannedWork: newPlanned,
-      completedWork: newAchieved,
-      hasBlocker,
-      blocker: hasBlocker
-        ? {
-            description: blockerDesc,
-            reportedTo,
-            impact: blockerImpact,
-          }
-        : null,
-      submittedBy: 'Current User (Contractor Lead)',
-      safety: 'PPE & Fall-Protection Verified',
-      photoUrl: photoName ? 'https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=500' : null,
-    };
-
-    setDailyReports([newEntry, ...dailyReports]);
-
     try {
       await ApiClient.createDailyReport({
         projectId: projectId || undefined,
+        tower: newTower,
+        contractor: newContractor,
         date: new Date(newDate).toISOString(),
         weather: newWeather,
-        manpower: Number(newManpower),
+        manpower: Number(newManpower) || 0,
         plannedWork: newPlanned,
         completedWork: newAchieved,
         hasBlocker,
@@ -211,19 +147,19 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ projectId, initi
         remarks: `${newTower} execution logged by ${newContractor}`,
       });
       await loadData();
-    } catch (err) {
-      console.warn('Backend DPR save note:', err);
+      setFeedback(`Daily progress report saved successfully.`);
+      setDprModalOpen(false);
+      setNewPlanned('');
+      setNewAchieved('');
+      setHasBlocker(false);
+      setBlockerDesc('');
+      setReportedTo('');
+      setBlockerImpact('');
+      setPhotoName(null);
+    } catch (err: any) {
+      console.error('Failed to save DPR:', err);
+      alert(err.message || 'Failed to save daily progress report');
     }
-
-    setFeedback(`Daily Progress Report for ${newTower} (${newContractor}) logged and indexed into RAG successfully.`);
-    setDprModalOpen(false);
-    setNewPlanned('');
-    setNewAchieved('');
-    setHasBlocker(false);
-    setBlockerDesc('');
-    setReportedTo('');
-    setBlockerImpact('');
-    setPhotoName(null);
   };
 
   return (
@@ -761,6 +697,9 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ projectId, initi
                   onChange={(e) => setPhotoName(e.target.files?.[0]?.name || null)}
                   className="text-xs text-slate-400 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-sky-400 hover:file:bg-slate-700 cursor-pointer"
                 />
+                {photoName && (
+                  <span className="text-[11px] text-emerald-400 mt-1 block">Attached: {photoName}</span>
+                )}
               </div>
 
               <div className="pt-2 flex justify-end gap-2">

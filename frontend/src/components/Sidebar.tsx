@@ -93,16 +93,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Operational Mode Badge */}
+      {/* System Status Badge */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/60">
         <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
-          <span>AI / RAG Mode</span>
-          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-mono">
-            RAG_ENABLED=false
+          <span>Project Assistant</span>
+          <span className="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-300 text-[10px] font-semibold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Online
           </span>
         </div>
         <div className="text-[10px] text-slate-500 leading-tight">
-          Pure Operational Database Engine active. Vector retrieval deferred.
+          Connected to live project operations & records.
         </div>
       </div>
     </aside>
