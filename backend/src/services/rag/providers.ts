@@ -186,46 +186,20 @@ export class DatabaseVectorProvider implements IRAGProvider {
       return `Executive Contractor Progress Status Briefing (${topTitle}):\n\n${cleanContent}`;
     }
 
-    // Specific domain document grounding
-    if (qLower.includes('penalty') || qLower.includes('penalties') || qLower.includes('liquidated') || qLower.includes('delay')) {
-      return `According to the executed agreement "${topTitle}" (${topCategory}, Version ${topChunk.metadata.version}):\n\n` +
-        `• Delay Penalty Terms: Liquidated damages are levied at 0.5% per week of delay on critical milestones, capped at a maximum of 10% of total contract value.\n` +
-        `• Retention Money: 5% retention money is held back until satisfactory completion of the 24-month defect liability period.\n` +
-        `• Performance Guarantee: 10% bank guarantee required prior to mobilization mobilization advance release.`;
-    }
+    // Dynamic extraction strictly from top matching chunks
+    const relevantSnippets = scoredChunks
+      .slice(0, 3)
+      .map(c => {
+        const text = c.content
+          .replace(/\[DOCUMENT RECORD:.*?\]/g, '')
+          .replace(/\[DOCUMENT:.*?\]/g, '')
+          .replace(/\[ENGINEERING DRAWING:.*?\]/g, '')
+          .trim();
+        return `**${c.metadata.title}** (${Math.round(c.score * 100)}% match):\n${text}`;
+      })
+      .join('\n\n---\n\n');
 
-    if (qLower.includes('fire') || qLower.includes('safety') || qLower.includes('cfo') || qLower.includes('noc')) {
-      return `According to statutory compliance clearance "${topTitle}" (${topCategory}):\n\n` +
-        `• Fire Department Provisional NOC approval was granted under reference CFO Letter NOC/2024/991 for Tower A & B.\n` +
-        `• Key Statutory Mandates:\n` +
-        `  - Central wet riser system (150mm NB) with internal landing valves on every floor.\n` +
-        `  - External yard hydrants placed every 30m along perimeter with dual 2000 LPM main and diesel standby booster pumps.\n` +
-        `  - Unobstructed 9-meter peripheral access driveway for fire tender vehicular turning.\n` +
-        `  - Smoke damper automated cut-offs integrated with stairwell positive pressurization fans.`;
-    }
-
-    if (qLower.includes('rebar') || qLower.includes('structural') || qLower.includes('drawing') || qLower.includes('concrete')) {
-      return `According to engineering record "${topTitle}" (${topCategory}, Rev ${topChunk.metadata.version}):\n\n` +
-        `• Structural Steel Detailing: High-yield Fe 550D TMT reinforcement specified with 50mm clear cover for foundations and 30mm for floor slabs.\n` +
-        `• Slab Reinforcement Grid: Typical floor slabs from 5th to 14th floors utilize 16mm main rebar and 25mm high-ductility columns as per IS 13920 seismic design criteria.\n` +
-        `• Concrete Grade: M35 grade ready-mix concrete with slump test specification of 120 ± 25mm.`;
-    }
-
-    if (qLower.includes('mep') || qLower.includes('substation') || qLower.includes('hvac')) {
-      return `According to technical package "${topTitle}" (${topCategory}):\n\n` +
-        `• Turnkey MEP Scope: High-voltage 11kV electrical substation installation, dual 1000 kVA dry-type transformers, and main LT distribution switchgear panel in Basement 1.\n` +
-        `• Central Wet Riser: 150mm MS Class-C piping connected to dual 2000 LPM fire booster pumps.\n` +
-        `• HVAC Ventilation: Basement car park jet-fan ventilation system and toilet exhaust riser shafts.`;
-    }
-
-    // Dynamic extraction from top chunk content
-    const cleanContent = topChunk.content
-      .replace(/\[DOCUMENT RECORD:.*?\]/g, '')
-      .replace(/\[DOCUMENT:.*?\]/g, '')
-      .replace(/\[ENGINEERING DRAWING:.*?\]/g, '')
-      .trim();
-
-    return `Retrieved from Project Record "${topTitle}" (${topCategory}, Version ${topChunk.metadata.version || 1}, ${Math.round(topChunk.score * 100)}% match):\n\n${cleanContent}`;
+    return `Retrieved from Grounded Project Records:\n\n${relevantSnippets}`;
   }
 }
 

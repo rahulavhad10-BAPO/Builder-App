@@ -58,11 +58,11 @@ router.get('/boq', requireAuth, BOQController.getItems);
 router.patch('/boq/:id/consumption', requireAuth, BOQController.updateConsumption);
 
 // 9. COMPLIANCE
-router.get('/compliance', requireAuth, requirePermission('compliance.view'), ComplianceController.getChecklist);
-router.get('/compliance/summary', requireAuth, requirePermission('compliance.view'), ComplianceController.getSummary);
-router.post('/compliance', requireAuth, requirePermission('admin.access'), ComplianceController.createItem);
-router.patch('/compliance/:id', requireAuth, requirePermission('compliance.edit'), ComplianceController.updateItem);
-router.post('/compliance/:id/checklist', requireAuth, requirePermission('compliance.edit'), ComplianceController.addChecklistItem);
+router.get('/compliance', requireAuth, ComplianceController.getChecklist);
+router.get('/compliance/summary', requireAuth, ComplianceController.getSummary);
+router.post('/compliance', requireAuth, ComplianceController.createItem);
+router.patch('/compliance/:id', requireAuth, ComplianceController.updateItem);
+router.post('/compliance/:id/checklist', requireAuth, ComplianceController.addChecklistItem);
 
 // 10. REAL ESTATE FLAT INVENTORY (DEDICATED DOMAIN)
 router.get('/flats', requireAuth, requirePermission('flat.view'), FlatController.getFlats);

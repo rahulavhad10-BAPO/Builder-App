@@ -308,122 +308,94 @@ export class StructuredDataService {
       };
     }
 
-    // 9. Daily Progress Reports (DPR) / Multi-Contractor Tower Weekly Progress
+    // 9. Daily Progress Reports (DPR) / Today's Progress / Site Execution Logs
     if (
+      q.includes('today') ||
       q.includes('daily progress') ||
       q.includes('dpr') ||
       q.includes('site report') ||
-      (q.includes('progress') && (q.includes('tower a') || q.includes('tower b') || q.includes('tower c') || q.includes('this week') || q.includes('weekly'))) ||
-      (q.includes('daily') && (q.includes('report') || q.includes('progress') || q.includes('summary')))
+      (q.includes('progress') && (q.includes('report') || q.includes('status') || q.includes('log')))
     ) {
-      // 1. Detect target tower
-      let targetTowerName = 'Tower A';
-      if (q.includes('tower b') || q.includes('tower-b')) targetTowerName = 'Tower B';
-      else if (q.includes('tower c') || q.includes('tower-c')) targetTowerName = 'Tower C';
-      else if (q.includes('tower a') || q.includes('tower-a')) targetTowerName = 'Tower A';
+      const isToday = q.includes('today') || q.includes("today's");
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
-      // 2. Fetch all reports matching the tower and recent submissions
-      const reports = await prisma.dailyReport.findMany({
-        where: {
-          building: { name: { contains: targetTowerName } },
-        },
-        orderBy: { date: 'desc' },
-        include: { contractor: true, building: true, project: true },
-        take: 12,
-      });
+      // If user specifically asked about today, check only today's submissions
+      if (isToday) {
+        const todayReports = await prisma.dailyReport.findMany({
+          where: {
+            date: { gte: todayStart },
+          },
+          include: { contractor: true, building: true, project: true },
+          orderBy: { date: 'desc' },
+        });
 
-      // If no tower-specific reports found, fallback to all recent daily reports
-      const finalReports = reports.length > 0 ? reports : await prisma.dailyReport.findMany({
-        orderBy: { date: 'desc' },
-        include: { contractor: true, building: true, project: true },
-        take: 8,
-      });
+        const todayStr = new Date().toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
 
-      if (finalReports.length === 0) {
+        if (todayReports.length === 0) {
+          return {
+            matched: true,
+            answer: `No daily progress report has been submitted for today (${todayStr}) yet.\n\nSite contractors can submit today's DPR in the Site Operations module, and it will immediately be indexed for queries here.`,
+            drillDownRoute: '/operations?tab=daily',
+          };
+        }
+
+        let ans = `### Daily Progress Report for Today (${todayStr}):\n\n`;
+        todayReports.forEach((r, idx) => {
+          ans += `${idx + 1}. **${r.contractor?.name || 'Contractor'}** (${r.building?.name || 'Site'}):\n` +
+            `   • **Planned Work:** "${r.plannedWork}"\n` +
+            `   • **Achieved EoD:** "${r.completedWork}"\n` +
+            `   • **Manpower:** ${r.manpower} Pax deployed (${r.equipment || 'Standard equipment'})\n` +
+            (r.hasBlocker
+              ? `   • ⚠️ **Blocker:** ${r.blockerDesc} (Escalated to: ${r.reportedTo || 'Project Management'})\n\n`
+              : `   • **Blockers:** Zero blockers; work on schedule.\n\n`);
+        });
+
         return {
           matched: true,
-          answer: `Daily Progress Reports (DPR) are submitted directly by site contractors. Currently, zero daily reports are logged for ${targetTowerName}. Contractors can log daily reports under Site Operations.`,
+          answer: ans,
+          data: todayReports,
           drillDownRoute: '/operations?tab=daily',
         };
       }
 
-      // Group reports by contractor to synthesize consolidated multi-contractor status
-      const contractorMap = new Map<string, any[]>();
-      let totalManpower = 0;
-      const blockers: Array<{ contractor: string; desc: string; reportedTo: string; impact: string }> = [];
+      // Check general recent reports in system
+      const recentReports = await prisma.dailyReport.findMany({
+        orderBy: { date: 'desc' },
+        include: { contractor: true, building: true, project: true },
+        take: 10,
+      });
 
-      for (const r of finalReports) {
-        const cName = r.contractor?.name || 'Apex Civil Works';
-        if (!contractorMap.has(cName)) {
-          contractorMap.set(cName, []);
-        }
-        contractorMap.get(cName)!.push(r);
-        totalManpower += (r.manpower || 0);
-
-        if (r.hasBlocker || (r.blockerDesc && r.blockerDesc.trim().length > 0)) {
-          blockers.push({
-            contractor: cName,
-            desc: r.blockerDesc || r.issues || 'Execution constraint flagged',
-            reportedTo: r.reportedTo || 'Project Management',
-            impact: r.blockerImpact || 'Under assessment',
-          });
-        }
+      if (recentReports.length === 0) {
+        return {
+          matched: true,
+          answer: `Currently, no Daily Progress Reports (DPR) are logged in the system.\n\nYou can submit a fresh Daily Report under the **Site Operations** module, and the RAG engine will instantly retrieve it.`,
+          drillDownRoute: '/operations?tab=daily',
+        };
       }
 
-      // Build executive natural language briefing
-      const startDateStr = new Date(finalReports[finalReports.length - 1].date).toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-      });
-      const endDateStr = new Date(finalReports[0].date).toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-
-      let briefing = `Executive Weekly Site Progress Summary: ${targetTowerName} (Skyline Solitaire)\n` +
-        `Reporting Period: ${startDateStr} - ${endDateStr} | Total Site Workforce: ${totalManpower} Pax across ${contractorMap.size} Active Contractors\n\n` +
-        `Executive Synopsis:\n` +
-        `Multi-trade execution in ${targetTowerName} is proceeding across structural concrete pours, MEP riser shafts, and interior masonry. All contractor daily logs for this week have been retrieved and consolidated:\n\n` +
-        `Contractor Execution Breakdown:\n`;
-
-      let cIdx = 1;
-      contractorMap.forEach((cReports, cName) => {
-        const latest = cReports[0];
-        const scope = latest.contractor?.scope || 'Site Scope';
-        briefing += `${cIdx}. ${cName} (${scope}):\n` +
-          `   • Planned Work: "${latest.plannedWork}"\n` +
-          `   • Achieved EoD: "${latest.completedWork}"\n` +
-          `   • Manpower & Equipment: ${latest.manpower} Pax deployed (${latest.equipment || 'Standard equipment deployed'})\n` +
-          (latest.hasBlocker
-            ? `   • ⚠️ Active Blocker: ${latest.blockerDesc} (Escalated to: ${latest.reportedTo || 'Project Management'})\n\n`
-            : `   • Blocker Status: ✅ Zero blockers; work is progressing on schedule.\n\n`);
-        cIdx++;
-      });
-
-      briefing += `Site Blockers & Delay Escalations:\n`;
-      if (blockers.length > 0) {
-        blockers.forEach(b => {
-          briefing += `⚠️ [${b.contractor}]: ${b.desc}\n  - Escalated To: ${b.reportedTo}\n  - Delay Impact: ${b.impact}\n`;
+      let ans = `### Recent Site Daily Progress Reports (${recentReports.length} Submitted Logs):\n\n`;
+      recentReports.forEach((r, idx) => {
+        const logDate = new Date(r.date).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
         });
-      } else {
-        briefing += `✅ Zero critical blockers reported across contractors for ${targetTowerName} this week; execution is on baseline.\n`;
-      }
-
-      briefing += `\nSafety Adherence: Zero lost-time incidents; 100% PPE adherence certified across all shifts.`;
+        ans += `${idx + 1}. **${r.contractor?.name || 'Contractor'}** - ${r.building?.name || 'Site'} (${logDate}):\n` +
+          `   • **Planned:** "${r.plannedWork}"\n` +
+          `   • **Achieved:** "${r.completedWork}"\n` +
+          `   • **Manpower:** ${r.manpower} Pax\n` +
+          (r.hasBlocker ? `   • ⚠️ **Blocker:** ${r.blockerDesc}\n\n` : `   • **Blocker:** None\n\n`);
+      });
 
       return {
         matched: true,
-        answer: briefing,
-        data: finalReports.map(r => ({
-          date: new Date(r.date).toLocaleDateString('en-IN'),
-          tower: r.building?.name || targetTowerName,
-          contractor: r.contractor?.name || 'Contractor',
-          manpower: `${r.manpower} Pax`,
-          planned: r.plannedWork,
-          achieved: r.completedWork,
-          blocker: r.blockerDesc || (r.hasBlocker ? 'Active Blocker' : 'None'),
-        })),
+        answer: ans,
+        data: recentReports,
         drillDownRoute: '/operations?tab=daily',
       };
     }

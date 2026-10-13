@@ -12,6 +12,7 @@ import {
   Clock,
   ShieldAlert,
 } from 'lucide-react';
+import { ComplianceSection } from '../components/ComplianceSection.js';
 
 interface DashboardViewProps {
   projectId: string;
@@ -260,6 +261,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ projectId, onNavig
             onClick={() => onNavigate('material-inventory', { lowStock: true })}
           />
         </div>
+      </div>
+
+      {/* SECTION 4: STATUTORY CLEARANCES & CHECKLISTS REGISTRY (DIRECTLY ON DASHBOARD) */}
+      <div className="pt-2 border-t border-slate-800/80">
+        <ComplianceSection projectId={projectId} />
       </div>
     </div>
   );
